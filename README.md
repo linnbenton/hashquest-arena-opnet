@@ -32,6 +32,8 @@ The goal of this project is to demonstrate how **Bitcoin can power interactive d
 
 ---
 
+# Live Demo
+→ https://hashquest-opnet.vercel.app/
 ## 📦 Installation
 
 Clone the repository:
