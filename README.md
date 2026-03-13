@@ -1,36 +1,43 @@
-HashQuest Arena
+# HashQuest Arena
 
-HashQuest Arena is a Bitcoin Layer-1 idle mining game built on OP_NET.
+HashQuest Arena is a **Bitcoin Layer-1 idle mining game** built on **OP_NET**.  
 Players connect their wallet, start mining, and claim rewards directly on-chain.
 
-The goal of this project is to demonstrate how Bitcoin can power interactive decentralized applications such as games and on-chain reward systems.
+The goal of this project is to demonstrate how **Bitcoin can power interactive decentralized applications**, such as games and on-chain reward systems.
 
-Features
+---
 
-Connect OP_NET wallet
+## 🚀 Features
 
-Start mining to generate rewards
+- Connect OP_NET wallet
+- Start mining to generate rewards
+- Claim mining rewards directly on-chain
+- Simple idle gameplay mechanics
+- Fully decentralized reward logic
 
-Claim mining rewards on-chain
+---
 
-Simple idle gameplay mechanics
+## 🧱 Tech Stack
 
-Fully decentralized reward logic
+### Frontend
+- Next.js
+- React
+- Tailwind CSS
 
-Tech Stack
+### Blockchain
+- OP_NET Smart Contracts
 
-Frontend
+### Deployment
+- Vercel
 
-Next.js
+---
 
-React
+# Live Demo
+→ https://hashquest-opnet.vercel.app/
+## 📦 Installation
 
-Tailwind CSS
+Clone the repository:
 
-Blockchain
-
-OP_NET Smart Contracts
-
-Deployment
-
-Vercel
+```bash
+git clone https://github.com/linnbenton/hashquest-opnet.git
+cd hashquest-opnet
