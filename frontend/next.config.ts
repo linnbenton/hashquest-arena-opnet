@@ -1,7 +1,10 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  experimental: {
+    // Jangan pakai turbo, karena Windows + Turbopack sering crash
+    // turbo: true,  
+  },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
