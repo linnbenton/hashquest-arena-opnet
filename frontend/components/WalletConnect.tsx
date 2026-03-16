@@ -1,42 +1,73 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState } from "react";
 
-export default function WalletConnect(){
+export default function WalletConnect({onConnect}:any){
 
- const [address,setAddress] = useState("")
+const [address,setAddress] = useState("")
 
- async function connectWallet(){
+async function connectWallet(){
 
-   if((window as any).opnet){
+try{
 
-     const wallet = await (window as any).opnet.connect()
+const opnet = (window as any).opnet
 
-     setAddress(wallet.address)
+if(!opnet){
 
-   } else {
+alert("Install OPNet Wallet")
+return
 
-     alert("OP_NET wallet not found")
+}
 
-   }
+const accounts = await opnet.request({
+method:"connect"
+})
 
- }
+const addr = accounts[0]
 
- return (
+setAddress(addr)
 
-  <div className="flex flex-col items-center gap-2">
+if(onConnect){
+onConnect(addr)
+}
 
-   <button
-    onClick={connectWallet}
-    className="px-6 py-3 bg-green-600 text-white rounded-lg"
-   >
-    Connect Wallet
-   </button>
+}catch(err){
 
-   <p>{address}</p>
+console.error(err)
 
-  </div>
+alert("wallet connect error")
 
- )
+}
+
+}
+
+return(
+
+<div className="flex flex-col items-center gap-2">
+
+{address ? (
+
+<div className="text-green-400">
+Wallet Connected
+<br/>
+{address}
+</div>
+
+) : (
+
+<button
+onClick={connectWallet}
+className="bg-blue-600 px-6 py-2 rounded text-white"
+>
+
+Connect OPNet Wallet
+
+</button>
+
+)}
+
+</div>
+
+)
 
 }

@@ -1,18 +1,21 @@
+"use client"
+
 import Miner from "../components/Miner"
-import WalletConnect from "../components/WalletConnect"
 
-export default function Home() {
+export default function Home(){
 
- return (
+return(
 
-  <main className="flex flex-col items-center justify-center h-screen gap-6">
+<main className="flex flex-col items-center gap-10 p-10 text-white bg-black/60 min-h-screen">
 
-   <WalletConnect/>
+<h1 className="text-4xl font-bold text-cyan-400 drop-shadow-[0_0_10px_cyan]">
+HashQuest Arena
+</h1>
 
-   <Miner/>
+<Miner/>
 
-  </main>
+</main>
 
- )
+)
 
 }
