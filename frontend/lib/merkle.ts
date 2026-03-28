@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { MerkleTree } from "merkletreejs";
 import { ethers } from "ethers";
 import keccak256 from "keccak256";
