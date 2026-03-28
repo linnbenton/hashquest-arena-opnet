@@ -1,19 +1,12 @@
-import { NextResponse } from "next/server"
-
-let players = [
-
-{player:"opt1abc123456",reward:200},
-{player:"opt1def789123",reward:150},
-{player:"opt1xyz555333",reward:90}
-
-]
-
-export async function GET(){
-
-return NextResponse.json({
-
-players
-
-})
-
+export async function GET() {
+  return Response.json([
+    {
+      address: "opt1abc123...",
+      reward: 3.5
+    },
+    {
+      address: "opt1xyz789...",
+      reward: 7.2
+    }
+  ]);
 }
