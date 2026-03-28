@@ -21,6 +21,7 @@ On-chain mining + raffle game built on OP_NET.
 
 ## Run
 npm install
+
 npm run dev
 
 ---
