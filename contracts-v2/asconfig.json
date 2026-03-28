@@ -1,0 +1,14 @@
+{
+  "options": {
+    "noAssert": true,
+    "runtime": "stub",
+    "use": ["abort="]
+  },
+  "targets": {
+    "release": {
+      "outFile": "build/release.wasm",
+      "optimizeLevel": 3,
+      "shrinkLevel": 1
+    }
+  }
+}

@@ -1,16 +1,12 @@
 // src/lib/opnetClient.ts
 
-export async function callContract(method: string, args: any[] = []) {
+export async function sendOpnetTx(to: string, amount: number) {
 
-  const opnet = (window as any).opnet
+  // ⚠️ nanti ganti dengan SDK asli
+  console.log("Sending TX to:", to, "amount:", amount)
 
-  if (!opnet || !opnet.request) {
-    throw new Error("OPNet wallet not connected")
+  return {
+    success: true,
+    txHash: "opnet_" + Math.random().toString(16).slice(2)
   }
-
-  return await opnet.request({
-    method: method,
-    params: args
-  })
-
 }
