@@ -4,7 +4,7 @@ import { useState } from "react";
 
 /* 🪙 TOKEN PILL */
 const PILL_CONTRACT =
-  "opt1sqp5gx9k0nrqph3sy3aeyzt673dz7ygtqxcfdqfle";
+  "opt1sqzxnyyygv27euyf5wvjhfd32frhn3f2mku2l0q83";
 
 export default function DeployContract() {
   const [loading, setLoading] = useState(false);

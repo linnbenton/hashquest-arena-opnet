@@ -1,0 +1,23 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="jp" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff"></stop>
+      <stop offset="50%" stop-color="#f43f5e"></stop>
+      <stop offset="100%" stop-color="#7f1d1d"></stop>
+    </radialGradient>
+
+    <filter id="glow2">
+      <feGaussianBlur stdDeviation="5" result="b"></feGaussianBlur>
+      <feMerge>
+        <feMergeNode in="b"></feMergeNode>
+        <feMergeNode in="SourceGraphic"></feMergeNode>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="64" cy="64" r="54" fill="url(#jp)" filter="url(#glow2)"></circle>
+
+  <text x="50%" y="55%" text-anchor="middle" font-size="20" font-weight="bold" fill="#fff">
+    JACKPOT
+  </text>
+</svg>

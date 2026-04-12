@@ -84,3 +84,40 @@ body {
   75% { transform: translate(2px, 2px); }
   100% { transform: translate(0px); }
 }
+
+.token-spin {
+  animation: spin 4s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.jackpot-brutal {
+  animation: jackpotFlash 0.3s infinite alternate;
+}
+
+@keyframes jackpotFlash {
+  from {
+    background: radial-gradient(circle, #ff0000, #000);
+  }
+  to {
+    background: radial-gradient(circle, #ffff00, #000);
+  }
+}
+
+@keyframes wheel-glow {
+  0%, 100% { filter: drop-shadow(0 0 15px rgba(168, 85, 247, 0.4)); }
+  50% { filter: drop-shadow(0 0 30px rgba(168, 85, 247, 0.8)); }
+}
+
+.animate-wheel-glow {
+  animation: wheel-glow 3s infinite ease-in-out;
+}
+
+/* Efek Blur saat berputar kencang */
+.spinning-blur {
+  filter: blur(1px);
+  transition: filter 0.5s ease-in-out;
+}

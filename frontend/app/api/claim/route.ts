@@ -1,53 +1,54 @@
-import crypto from "crypto";
+import { NextResponse } from "next/server";
 
-const SECRET = process.env.REMOVED || "fallback_secret";
-
-const walletHits: Record<string, number> = {};
-
-const lastClaim: Record<string, number> = {};
-const COOLDOWN = 60 * 1000;
+let lastClaimMap: Record<string, number> = {};
+let fingerprintMap: Record<string, boolean> = {};
 
 export async function POST(req: Request) {
   try {
-    const { wallet } = await req.json();
+    const body = await req.json();
+    const wallet = body.wallet;
 
     if (!wallet) {
-      return Response.json({ error: "NO_WALLET" }, { status: 400 });
+      return NextResponse.json({ error: "No wallet" }, { status: 400 });
     }
 
+    // =========================
+    // 🧠 RATE LIMIT (ANTI SPAM)
+    // =========================
     const now = Date.now();
-    const last = lastClaim[wallet] || 0;
+    const last = lastClaimMap[wallet] || 0;
 
-    if (now - last < COOLDOWN) {
-      return Response.json({
-        error: "COOLDOWN",
-        wait: Math.ceil((COOLDOWN - (now - last)) / 1000),
-      });
+    if (now - last < 5000) {
+      return NextResponse.json({ status: "blocked" });
     }
 
-    // 🎯 reward stabil (bukan random liar)
-    const reward = Math.floor(Math.random() * 3) + 1;
+    lastClaimMap[wallet] = now;
 
-    const message = `${wallet}:${reward}`;
+    // =========================
+    // 🧠 ANTI MULTI WALLET (BASIC)
+    // =========================
+    const ip =
+      (req.headers.get("x-forwarded-for") || "unknown").split(",")[0];
 
-    const sig = crypto
-      .createHmac("sha256", SECRET)
-      .update(message)
-      .digest("hex");
+    const ua = req.headers.get("user-agent") || "unknown";
 
-    // 🔥 TEMP: BELUM KIRIM TOKEN (hindari crash)
-    console.log("SEND PILL →", wallet, reward);
+    const fingerprint = ip + "|" + ua;
 
-    lastClaim[wallet] = now;
+    if (fingerprintMap[fingerprint]) {
+      return NextResponse.json({ status: "blocked" });
+    }
 
-    return Response.json({
+    fingerprintMap[fingerprint] = true;
+
+    // =========================
+    // 🎁 REWARD
+    // =========================
+    const reward = Math.floor(Math.random() * 5) + 1;
+
+    return NextResponse.json({
       reward,
-      sig,
-      status: "OK",
     });
-
-  } catch (err: any) {
-    console.error("API ERROR:", err);
-    return Response.json({ error: "SERVER_ERROR" }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "server error" }, { status: 500 });
   }
 }

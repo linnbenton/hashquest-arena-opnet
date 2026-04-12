@@ -1,285 +1,302 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { pickWinnerFair, verifyWinner } from "../lib/raffle";
+import { useEffect, useRef, useState } from "react";
 
-type Player = {
-  address: string;
-  tickets: number;
-};
+export default function RafflePanel({ raffleData }: any) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-export default function RafflePanel({ players = [] }: any) {
+  const [players, setPlayers] = useState<any[]>([]);
+  const [spinning, setSpinning] = useState(false);
+  const [winner, setWinner] = useState<string | null>(null);
+  const [reward, setReward] = useState<string | null>(null);
 
-  const [winner, setWinner] = useState<Player | null>(null);
+  const tickRef = useRef<HTMLAudioElement | null>(null);
+  const winRef = useRef<HTMLAudioElement | null>(null);
 
-  const [rolling, setRolling] = useState(false);
-  const [seed, setSeed] = useState("");
-  const [seedHash, setSeedHash] = useState("");
-  const [verified, setVerified] = useState<boolean | null>(null);
-  const [revealing, setRevealing] = useState(false);
-  const [jackpot, setJackpot] = useState(false);
+  // 🎁 REWARD CONFIG
+  const rewards = [
+    { label: "0.5 GEN", icon: "/tokens/gen.svg", value: 0.5 },
+    { label: "1 GEN", icon: "/tokens/gen.svg", value: 1 },
+    { label: "2 GEN", icon: "/tokens/gen.svg", value: 2 },
+    { label: "5 GEN", icon: "/tokens/gen.svg", value: 5 },
+    { label: "JACKPOT", icon: "/tokens/jackpot.svg", value: 20 },
+  ];
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    tickRef.current = new Audio("/click.mp3");
+    winRef.current = new Audio("/win.mp3");
+  }, []);
 
-  /* 🔊 SOUND */
-  const clickSound =
-    typeof Audio !== "undefined" ? new Audio("/click.mp3") : null;
-
-  const winSound =
-    typeof Audio !== "undefined" ? new Audio("/win.mp3") : null;
-
-  /* 🎰 DRAW */
-  const drawWinner = async () => {
-    if (rolling) return;
-    if (!players.length) return;
-
-    clickSound?.play();
-
-    setRolling(true);
-    setVerified(null);
-
-    document.body.classList.add("jackpot-flash");
-    setTimeout(() => {
-      document.body.classList.remove("jackpot-flash");
-    }, 300);
-
-    try {
-      let realSeed = Date.now().toString();
-
-      try {
-        const res = await fetch("/api/blockhash");
-        const data = await res.json();
-        if (data?.blockHash) {
-          realSeed = data.blockHash;
-        }
-      } catch {
-        console.warn("⚠️ fallback to local seed");
-      }
-
-      const buffer = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(realSeed)
-      );
-
-      const hashHex = Array.from(new Uint8Array(buffer))
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("");
-
-      setSeedHash(hashHex);
-      setRevealing(true);
-
-      setTimeout(async () => {
-
-        const result = pickWinnerFair(players, realSeed);
-
-        /* 🔥 ON-CHAIN SYNC */
-        const opnet = (window as any).opnet;
-
-        if (opnet?.web3?.provider && result) {
-          try {
-            await opnet.web3.provider.signAndBroadcastInteraction({
-              type: "call",
-              to: "opt1sqqchh073tjuyhf45m25tqxk5np49vn94juv36ly8",
-              data: `draw:${result.address}`
-            });
-          } catch (e) {
-            console.warn("⚠️ on-chain draw failed (safe ignore)", e);
-          }
-        }
-
-        setSeed(realSeed);
-        setWinner(result);
-        setRolling(false);
-        setRevealing(false);
-
-        if (result) {
-          winSound?.play();
-
-          const ok = verifyWinner(players, realSeed, result.address);
-          setVerified(ok);
-
-          fireConfetti();
-
-          /* 💥 JACKPOT */
-          setJackpot(true);
-          setTimeout(() => setJackpot(false), 1200);
-
-          /* OPTIONAL payout */
-          if (opnet?.sendTransaction) {
-            try {
-              await opnet.sendTransaction({
-                to: result.address,
-                amount: 10
-              });
-            } catch (e) {
-              console.error("Payout failed", e);
-            }
-          }
-        }
-
-      }, 1800);
-
-    } catch (err) {
-      console.error(err);
-      setRolling(false);
-    }
-  };
-
-  /* 🎉 CONFETTI */
-  function fireConfetti() {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-
-    const W = (canvas.width = canvas.offsetWidth);
-    const H = (canvas.height = canvas.offsetHeight);
-
-    const colors = ["#a855f7", "#22c55e", "#3b82f6"];
-
-    const pieces = Array.from({ length: 60 }).map(() => ({
-      x: Math.random() * W,
-      y: -10,
-      size: Math.random() * 5 + 3,
-      vx: Math.random() * 2 - 1,
-      vy: Math.random() * 3 + 2,
-      color: colors[Math.floor(Math.random() * colors.length)]
-    }));
-
-    let frame = 0;
-
-    function loop() {
-      frame++;
-      ctx.clearRect(0, 0, W, H);
-
-      pieces.forEach(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        ctx.fillStyle = p.color;
-        ctx.fillRect(p.x, p.y, p.size, p.size);
-      });
-
-      if (frame < 100) requestAnimationFrame(loop);
+  // =========================
+  // 🔄 PLAYERS
+  // =========================
+  useEffect(() => {
+    if (!raffleData || raffleData.length === 0) {
+      setPlayers([
+        { wallet: "player1", tickets: 3 },
+        { wallet: "player2", tickets: 5 },
+      ]);
+      return;
     }
 
-    loop();
+    const map: Record<string, number> = {};
+
+    raffleData.forEach((r: any) => {
+      if (!r.wallet) return;
+      map[r.wallet] = r.tickets;
+    });
+
+    setPlayers(
+      Object.entries(map).map(([wallet, tickets]) => ({
+        wallet,
+        tickets,
+      }))
+    );
+  }, [raffleData]);
+
+  // =========================
+  // 🎲 PICK WINNER
+  // =========================
+  function pickWinner(seed?: string) {
+    if (!seed || typeof seed !== "string") return null;
+    if (!players.length) return null;
+
+    const total = players.reduce((s, p) => s + p.tickets, 0);
+    if (total === 0) return null;
+
+    let rand =
+      (parseInt(seed.slice(0, 8), 16) / 0xffffffff) * total;
+
+    for (const p of players) {
+      if (rand < p.tickets) return p.wallet;
+      rand -= p.tickets;
+    }
+
+    return players[0]?.wallet || null;
   }
 
-  const totalTickets = players.reduce(
-    (a: number, b: Player) => a + b.tickets,
-    0
-  );
+  // =========================
+  // 🎁 PICK REWARD
+  // =========================
+  function pickReward(seed?: string) {
+    if (!seed || typeof seed !== "string") {
+      return { label: "NO REWARD", value: 0 };
+    }
+
+    const index =
+      parseInt(seed.slice(8, 10), 16) % rewards.length;
+
+    return rewards[index];
+  }
+
+  // =========================
+  // 🎰 SPIN
+  // =========================
+  async function spin() {
+    if (spinning) return;
+
+    setSpinning(true);
+    setWinner(null);
+    setReward(null);
+
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const radius = 170;
+
+    const total = players.reduce((s, p) => s + p.tickets, 0);
+
+    let angle = 0;
+    let velocity = Math.random() * 0.4 + 0.35;
+
+    // 🎇 PARTICLE EXPLOSION
+    function explosion(
+      ctx: CanvasRenderingContext2D,
+      cx: number,
+      cy: number
+    ) {
+      for (let i = 0; i < 60; i++) {
+        ctx.beginPath();
+        ctx.arc(
+          cx + Math.random() * 120 - 60,
+          cy + Math.random() * 120 - 60,
+          3,
+          0,
+          Math.PI * 2
+        );
+        ctx.fillStyle = `hsl(${Math.random() * 360},100%,50%)`;
+        ctx.fill();
+      }
+    }
+
+    const images: HTMLImageElement[] = rewards.map((r) => {
+      const img = new Image();
+      img.src = r.icon;
+      return img;
+    });
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      let start = angle;
+
+      players.forEach((p, i) => {
+        const slice = (p.tickets / total) * Math.PI * 2;
+
+        const grad = ctx.createLinearGradient(0, 0, 400, 400);
+        grad.addColorStop(0, `hsl(${i * 60}, 90%, 60%)`);
+        grad.addColorStop(1, `hsl(${i * 60}, 90%, 30%)`);
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, start, start + slice);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // 🪙 ICON
+        const mid = start + slice / 2;
+        const tx = cx + Math.cos(mid) * 110;
+        const ty = cy + Math.sin(mid) * 110;
+
+        const img = images[i % images.length];
+        ctx.drawImage(img, tx - 12, ty - 12, 24, 24);
+
+        start += slice;
+      });
+
+      // 🔺 POINTER
+      ctx.shadowColor = "yellow";
+      ctx.shadowBlur = 20;
+
+      ctx.beginPath();
+      ctx.moveTo(cx - 10, cy - radius - 10);
+      ctx.lineTo(cx + 10, cy - radius - 10);
+      ctx.lineTo(cx, cy - radius + 10);
+      ctx.fillStyle = "white";
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+
+      angle += velocity;
+      velocity *= 0.97;
+
+      if (velocity > 0.05 && tickRef.current) {
+        tickRef.current.currentTime = 0;
+        tickRef.current.play().catch(() => {});
+      }
+
+      if (velocity > 0.002) {
+        requestAnimationFrame(draw);
+      } else {
+        finish();
+      }
+    }
+
+    async function finish() {
+      const reveal = await fetch("/api/raffle/reveal");
+      const r = await reveal.json();
+
+      // ✅ SAFE CHECK
+      if (!r?.seed) {
+        console.error("❌ SEED UNDEFINED:", r);
+        setSpinning(false);
+        return;
+      }
+
+      const w = pickWinner(r.seed);
+      const rewardData = pickReward(r.seed);
+
+      setWinner(w);
+      setReward(rewardData.label);
+
+      // 🔊 WIN SOUND
+      winRef.current?.play().catch(() => {});
+
+      // 💥 JACKPOT EFFECT
+      if (rewardData.label === "JACKPOT") {
+        document.body.classList.add("jackpot-brutal");
+
+        document.body.animate(
+          [
+            { transform: "translate(0px)" },
+            { transform: "translate(-10px)" },
+            { transform: "translate(10px)" },
+            { transform: "translate(-10px)" },
+            { transform: "translate(0px)" },
+          ],
+          { duration: 400 }
+        );
+
+        explosion(ctx, cx, cy);
+
+        new Audio("/jackpot.mp3").play().catch(() => {});
+
+        setTimeout(() => {
+          document.body.classList.remove("jackpot-brutal");
+        }, 2000);
+      }
+
+      // 🔗 CLAIM
+      await fetch("/api/raffle/claim", {
+        method: "POST",
+        body: JSON.stringify({
+          wallet: w,
+          amount: rewardData.value,
+        }),
+      });
+
+      setSpinning(false);
+    }
+
+    draw();
+  }
 
   return (
-    <div
-      className={`
-        relative 
-        p-4 
-        rounded-xl 
-        text-center 
-        overflow-hidden
-
-        bg-black/40
-        border border-purple-500
-
-        transition-all duration-300
-
-        /* 🔥 MATCH MINER EXACTLY */
-        shadow-[0_0_25px_#a855f7]
-        hover:shadow-[0_0_60px_#a855f7]
-        hover:scale-[1.02]
-
-        ${rolling ? "scale-[1.04] shadow-[0_0_90px_#a855f7]" : ""}
-      `}
-    >
-
+    <div className="relative w-full h-full min-h-[600px] flex flex-col gap-10 p-8 bg-black/40 rounded-3xl border-4 border-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.6)]">
+      {/* Header Section */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🎰</span>
+            <h2 className="text-purple-400 font-black text-xl tracking-wider uppercase drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]">
+              RAFFLE LOTTERY
+            </h2>
+          </div>
+          </div>
+      
+      {/* Canvas Roda (Logika kamu tetap berjalan di sini) */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 pointer-events-none z-0"
+        width={350} 
+        height={350}
+        className="rounded-full border-8 border-purple-900/50 shadow-[0_0_30px_rgba(168,85,247,0.8)] bg-gradient-to-b from-purple-500/10 to-transparent"
       />
 
-      <div className="relative z-10">
+      {/* Tombol Spin Premium */}
+      <button
+        onClick={spin}
+        disabled={spinning}
+        className={`
+          w-full py-4 rounded-xl font-black text-white uppercase tracking-widest
+          transition-all duration-300 shadow-lg
+          ${spinning 
+            ? 'bg-gray-600 cursor-not-allowed opacity-50' 
+            : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:scale-105 hover:shadow-[0_0_20px_rgba(168,85,247,0.8)] active:scale-95 border-b-4 border-purple-800'
+          }
+        `}
+      >
+        {spinning ? "Berputar..." : "🎰 Draw Winner"}
+      </button>
 
-        <h2 className="text-xl text-purple-400 mb-2 font-bold">
-          🎟 Raffle Lottery
-        </h2>
-
-        <p className="text-sm text-gray-300">
-          Players: {players.length}
-        </p>
-
-        <p className="text-sm text-cyan-300">
-          Total Tickets: {totalTickets}
-        </p>
-
-        <button
-          onClick={drawWinner}
-          disabled={rolling || players.length === 0}
-          className="bg-green-500 px-4 py-2 rounded mt-3 disabled:opacity-50"
-        >
-          {rolling ? "Drawing..." : "Draw Winner"}
-        </button>
-
-        {/* 🎰 SPIN */}
-        {rolling && (
-          <div className="text-yellow-400 text-2xl mt-2 animate-spin">
-            🎰
-          </div>
-        )}
-
-        {/* 🔍 REVEAL */}
-        {revealing && (
-          <p className="text-purple-400">
-            🔍 Revealing...
-          </p>
-        )}
-
-        {/* 🏆 WINNER */}
-        {winner && (
-          <div className="mt-3 relative">
-
-            <div className="text-green-400 break-all font-bold text-lg animate-pulse">
-              🏆 {winner.address}
-            </div>
-
-            <div className="absolute inset-0 bg-green-400 blur-xl opacity-30 animate-ping rounded-full"></div>
-
-          </div>
-        )}
-
-        {seedHash && (
-          <p className="text-xs mt-2 text-gray-400 break-all">
-            Commit: {seedHash}
-          </p>
-        )}
-
-        {seed && (
-          <p className="text-xs text-gray-500 break-all">
-            Seed: {seed}
-          </p>
-        )}
-
-        {verified !== null && (
-          <p className="mt-2">
-            {verified ? "✅ Fair" : "❌ Invalid"}
-          </p>
-        )}
-
-      </div>
-
-      {/* 💥 JACKPOT FULLSCREEN */}
-      {jackpot && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
-
-          <div className="absolute inset-0 bg-purple-500 opacity-20 animate-ping"></div>
-
-          <div className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-purple-400 animate-bounce">
-            💥 JACKPOT 💥
-          </div>
-
+      {/* Box Pengumuman Pemenang */}
+      {winner && (
+        <div className="w-full mt-2 p-4 bg-zinc-900/80 border border-green-500/50 rounded-xl text-center shadow-inner animate-pulse">
+          <span className="text-green-400 font-bold text-lg drop-shadow-md">🏆 Winner: {winner}</span>
+          <br />
+          <span className="text-yellow-400 font-bold text-md drop-shadow-md">🎁 Reward: {reward}</span>
         </div>
       )}
-
     </div>
   );
 }
