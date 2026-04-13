@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { claimEVMReward } from "../evm/claim";
-import WalletSelector from "./WalletSelector";
 import HashAnimation from "./HashAnimation";
 import MiningParticles from "./MiningParticles";
 import HashrateMeter from "./HashrateMeter";
@@ -36,11 +35,12 @@ const Confetti = () => (
   </div>
 );
 
-export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
-  const [wallet, setWallet] = useState("");
+export default function Miner({ wallet, setWalletParent, onTickets, onClaim }: any) {
   const [walletType, setWalletType] = useState<"opnet" | "metamask" | "">("");
   const [walletError, setWalletError] = useState("");
 
+  const [hasClaimed, setHasClaimed] = useState(false);
+  
   const [mining, setMining] = useState(false);
   const [reward, setReward] = useState(0);
   const [claimedTickets, setClaimedTickets] = useState(0);
@@ -54,36 +54,65 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
   const [txHash, setTxHash] = useState("");
   const [showTxPopup, setShowTxPopup] = useState(false);
 
-  // --- TARUH DI SINI (Dekat state lainnya) ---
   const [isSpinning, setIsSpinning] = useState(false);
   const [wheelRotation, setWheelRotation] = useState(0);
-  const wheelRef = useRef<HTMLDivElement>(null);
-
-  <WalletSelector />
 
   const spinWheel = () => {
   if (isSpinning) return;
+
+  // 🔥 FIX: WAJIB WALLET
+  if (!wallet || !walletType) {
+    setWalletError("Connect wallet first");
+    return;
+  }
+
+  setWalletError("");
   setIsSpinning(true);
+
   const extraDegree = Math.floor(Math.random() * 360);
   const totalRotation = wheelRotation + 1800 + extraDegree;
   setWheelRotation(totalRotation);
+
   setTimeout(() => {
     setIsSpinning(false);
-    // Tambahkan logic nambah tiket di sini jika perlu
   }, 5000);
 };
 
+async function connectMetaMask() {
+  console.log("CLICK DETECTED"); // 👈 WAJIB
+
+  try {
+    if (!(window as any).ethereum) {
+      alert("MetaMask not found");
+      return;
+    }
+
+    const accounts = await (window as any).ethereum.request({
+      method: "eth_requestAccounts",
+    });
+
+    console.log("ACCOUNTS:", accounts); // 👈 WAJIB
+    console.log("onClaim exist?", typeof onClaim);
+
+    setWalletType("metamask");
+    setWalletParent?.(accounts[0]);
+
+  } catch (err) {
+    console.error("MetaMask error:", err);
+  }
+}
   async function connectWallet() {
     try {
       const opnet = (window as any).opnet;
 
       if (!opnet) {
-        const demo = "PLAYER_" + Math.floor(Math.random() * 10000);
-        setWallet(demo);
-        setWalletParent?.(demo);
-        setWalletError("Demo mode");
-        return;
-      }
+  const demo = "PLAYER_" + Math.floor(Math.random() * 10000);
+
+  setWalletParent?.(demo); 
+  setWalletError("Demo mode");
+
+  return;
+}
 
       await opnet.initialize?.();
 
@@ -92,11 +121,11 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
         (await opnet.getAccounts?.());
 
       const addr = accounts?.[0];
-      if (!addr) return setWalletError("Wallet not connected");
+if (!addr) return setWalletError("Wallet not connected");
 
-      setWallet(addr);
-      setWalletParent?.(addr);
-      setWalletError("");
+// setWallet(addr); <--- HAPUS ATAU KOMENTARI BARIS INI
+setWalletParent?.(addr); // <--- INI YANG PENTING
+setWalletError("");
     } catch {
       setWalletError("Wallet error");
     }
@@ -115,7 +144,9 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
   }, [reward, claimedTickets]);
 
   function startMining() {
-    if (!wallet) return setWalletError("Connect wallet first");
+    if (!wallet || !walletType) {
+  return setWalletError("Connect wallet first");
+}
     setWalletError("");
     setMining(true);
   }
@@ -124,7 +155,9 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
     setMining(false);
   }
 
+  if (typeof window !== "undefined") {
   console.log("🔥 CLICK CLAIM TRIGGERED");
+}
 
   async function claimReward() {
     setIsClaiming(true);
@@ -132,7 +165,9 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
     console.log("🧠 CONTRACT:", OPNET_CONTRACT);
 
     try {
-      if (!wallet) return setWalletError("Connect wallet first");
+      if (!wallet || !walletType) {
+  return setWalletError("Connect wallet first");
+}
 
       if (loading || cooldown) return;
 
@@ -270,6 +305,9 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
         }
 
         rewardFinal = data?.rewardFinal ?? reward;
+        console.log("✅ CLAIM SUCCESS → CALL onClaim");
+
+        onClaim?.(rewardFinal); // atau amount yang lo pakai
 
       } catch {
         console.log("⚠️ AI fail");
@@ -353,7 +391,7 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
                 <p className="text-green-400 text-[10px] font-mono bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">
                   {wallet.slice(0, 6)}...{wallet.slice(-4)}
                 </p>
-                <button onClick={() => { setWallet(""); setWalletType(""); setMining(false); }} className="text-[9px] text-red-400 hover:text-red-300 underline underline-offset-2 uppercase font-bold">Disconnect</button>
+                <button onClick={() => { setWalletParent?.(""); setWalletType(""); setMining(false); }} className="text-[9px] text-red-400 hover:text-red-300 underline underline-offset-2 uppercase font-bold">Disconnect</button>
              </div>
           )}
         </div>
@@ -365,7 +403,7 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
               <img src="/opnet.png" className="h-7 w-auto" alt="OPWallet" />
             </button>
             <div className="h-8 w-[1px] bg-white/10 mx-1"></div>
-            <button onClick={() => { setWalletType("metamask"); setWallet("METAMASK"); }} className="hover:scale-110 transition-transform">
+            <button onClick={connectMetaMask} className="hover:scale-110 transition-transform duration-200 transition-transform">
               <img src="/metamask.png" className="h-9 w-auto" alt="MetaMask" />
             </button>
           </div>
@@ -399,8 +437,8 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
         </div>
 
         {/* --- CONTAINER TOMBOL (Gunakan mt-auto) --- */}
-{/* mt-auto akan mendorong div ini ke paling bawah mengikuti tinggi kotak sebelah */}
-<div className="w-full mt-auto pt-35 flex flex-col gap-3"> 
+{/* CONTAINER UTAMA TOMBOL (Mengunci Posisi di Dasar Kotak) */}
+<div className="w-full mt-auto pt-10 flex flex-col gap-3"> 
   
   <button
     onClick={claimReward}
@@ -417,7 +455,7 @@ export default function Miner({ onTickets, setWallet: setWalletParent }: any) {
     {loading ? "📡 BROADCASTING..." : "🎰 CLAIM REWARD"}
   </button>
 
-  {/* Jaga ruang error agar tinggi kotak tidak berubah saat error muncul */}
+  {/* Jaga ruang error agar tinggi kotak tidak berubah (Space Booking) */}
   <div className="h-5 flex justify-center items-center">
     {walletError && (
       <p className="text-[10px] text-red-500 font-bold animate-pulse uppercase">
