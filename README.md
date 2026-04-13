@@ -5,24 +5,49 @@
 ![GameFi](https://img.shields.io/badge/GameFi-Mining_Game-blue)
 ![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green)
 
-HashQuest Arena is a **Bitcoin Layer-1 idle mining game** built on **OP_NET**.  
-Players connect their wallet, start mining, and claim rewards directly on-chain.
+NextJS • OP_NET • GenLayer • GameFi
 
-The goal of this project is to demonstrate how **Bitcoin can power interactive decentralized applications**, such as games and on-chain reward systems.
+HashQuest Arena is a Bitcoin Layer-1 idle mining + raffle game built on OP_NET, enhanced with AI-powered reward logic via GenLayer.
 
-On-chain mining + raffle game built on OP_NET.
+Players connect their wallet, simulate mining, earn tickets, and participate in a provably fair raffle system with on-chain rewards.
 
-## Features
-- ⛏ Mining simulation
+---
+
+## 🎯 Overview
+
+This project demonstrates how Bitcoin Layer-1 infrastructure can power interactive decentralized applications, combining:
+
+- 🔗 On-chain execution (OP_NET)
+- 🧠 AI-driven reward computation (GenLayer)
+
+The result is a hybrid GameFi system with dynamic rewards and verifiable fairness.
+
+---
+
+## 🌐 Testnet Integrations
+
+### 🔹 OP_NET Testnet
+- Core raffle and mining logic
+- On-chain reward distribution
+- Transaction validation
+
+### 🔹 GenLayer Testnet
+- AI-based reward computation
+- Dynamic multiplier and randomness
+- External inference for outcome generation
+
+---
+
+## 🎮 Features
+
+- ⛏ Mining simulation (idle gameplay)
 - 🎟 Ticket system
-- 🎰 Lottery (provably fair)
-- 💰 Prize pool
-- 🏆 Leaderboard
-
-## Run
-npm install
-
-npm run dev
+- 🎰 Provably fair raffle system
+- 💰 Prize pool distribution
+- 🏆 Leaderboard ranking
+- 🧠 AI reward logic (GenLayer)
+- 🔗 On-chain claim system
+- ⚡ Real-time updates (multiplayer-ready)
 
 ---
 
@@ -36,50 +61,33 @@ npm run dev
 ### Blockchain
 - OP_NET Smart Contracts
 
+### AI Layer
+- GenLayer Testnet
+
 ### Deployment
 - Vercel
 
 ---
 
-## Architecture
+## 🏗 Architecture
 
-HashQuest Arena is designed as a lightweight Web3 mining simulation built on OP_NET.
+HashQuest Arena is designed as a lightweight Web3 GameFi system.
 
 Core components:
 
 - Wallet Connection
 - Mining Simulation Engine
+- Raffle System (Provably Fair)
 - Reward Claim API
+- GenLayer Reward Engine
 - Leaderboard System
 - GPU Hashrate Meter
 - Particle Mining Visualization
 
-This project demonstrates how Bitcoin Layer-1 infrastructure can support interactive decentralized applications.
+---
 
-## Security Notice
-
-This repository is published for demonstration purposes.
-
-Unauthorized commercial use, cloning, or redistribution of the game logic is prohibited under the project license.
-
-## Environment Variables
-
-Create `.env.local` file:
-
-TREASURY_REMOVED=your_private_key_here
-
-## Challenge Submission
-
-Project submitted to:
-
-Vibecode Web3 Challenge
-
-# Live Demo
-→ https://hashquest-opnet.vercel.app/
-## 📦 Installation
-
-Clone the repository:
+## 🚀 Run Locally
 
 ```bash
-git clone https://github.com/linnbenton/hashquest-opnet.git
-cd hashquest-opnet
+npm install
+npm run dev
