@@ -1,216 +1,394 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+
+type SliceContent =
+  | { type: "text"; text: string }
+  | { type: "img"; index: number };
 
 export default function RafflePanel({
   players,
-  setPlayers,
   wallet,
-  pool,
-  setPool,
   hasClaimed,
-  setHasClaimed 
+  setHasClaimed,
 }: any) {
-  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tokenImagesRef = useRef<HTMLImageElement[]>([]);
+
+  const [imagesReady, setImagesReady] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
   const [reward, setReward] = useState<string | null>(null);
-  const tickRef = useRef<HTMLAudioElement | null>(null);
-  const winRef = useRef<HTMLAudioElement | null>(null);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [wheelRotation, setWheelRotation] = useState(0);
-  const [jackpotPool, setJackpotPool] = useState(50);
 
-  const rewards = [
-    { label: "0.5 GEN", icon: "/tokens/gen.svg", value: 0.5 },
-    { label: "1 GEN", icon: "/tokens/gen.svg", value: 1 },
-    { label: "2 GEN", icon: "/tokens/gen.svg", value: 2 },
-    { label: "5 PILL", icon: "/tokens/pill.png", value: 5 },
-    { label: "JACKPOT", icon: "/tokens/jackpot.svg", value: 20 },
-  ];
+  const [slowPhase, setSlowPhase] = useState(false);
 
-  function pickReward() {
-    const table = [
-      { label: "0.5 GEN", value: 0.5, chance: 40 },
-      { label: "1 GEN", value: 1, chance: 30 },
-      { label: "2 GEN", value: 2, chance: 20 },
-      { label: "5 PILL", value: 5, chance: 9 },
-      { label: "JACKPOT", value: jackpotPool, chance: 1 },
-    ];
-    const rand = Math.random() * 100;
-    let acc = 0;
-    for (const r of table) {
-      acc += r.chance;
-      if (rand <= acc) return r;
-    }
-    return table[0];
-  }
+  const myTickets = players?.[0]?.tickets || 0;
 
-  const myTickets = Array.isArray(players) && players.length > 0 ? players[0].tickets : 0;
-
+  // 🔥 LOAD IMAGE
   useEffect(() => {
-    const gen = new Image(); gen.src = "/tokens/gen.svg";
-    const pill = new Image(); pill.src = "/tokens/pill.png";
-    const jackpot = new Image(); jackpot.src = "/tokens/jackpot.svg";
-    tokenImagesRef.current = [gen, pill, gen, pill, jackpot];
+    const sources = [
+      "/tokens/gen.svg",
+      "/tokens/pill.png",
+      "/tokens/jackpot.svg",
+    ];
+
+    let loaded = 0;
+
+    const imgs: HTMLImageElement[] = sources.map((src) => {
+      const img = new Image();
+      img.src = src;
+
+      img.onload = () => {
+        loaded++;
+        if (loaded === sources.length) {
+          tokenImagesRef.current = imgs;
+          setImagesReady(true);
+        }
+      };
+
+      return img;
+    });
   }, []);
 
-  async function spin() {
-    if (!hasClaimed) { alert("Claim reward first!"); return; }
-    if (!wallet) { alert("Connect wallet first"); return; }
-    if (isSpinning) return;
+  // 🎨 DRAW WHEEL (tetap)
+  const drawWheel = (rotation = 0) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imagesReady) return;
 
-    setIsSpinning(true);
-    setWinner(null);
-    setReward(null);
-
-    const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
     const radius = 170;
 
-    if (myTickets <= 0) { alert("No tickets!"); setIsSpinning(false); return; }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    setPlayers((prev: any[]) =>
-      prev.map((p) => p.wallet === wallet ? { ...p, tickets: Math.max(0, p.tickets - 1) } : p)
-    );
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
 
-    let angle = 0;
-    let velocity = Math.random() * 0.4 + 0.35;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.translate(-cx, -cy);
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      const totalTickets = players.reduce((s: number, p: any) => s + (p.tickets || 0), 0);
-      const activePlayers = players.filter((p: any) => p.tickets > 0 || totalTickets === 0);
+    const sliceCount = 6;
+    const sliceAngle = (Math.PI * 2) / sliceCount;
 
-      // --- 1. WHEEL (IKUT BERPUTAR) ---
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(angle);
-      ctx.translate(-cx, -cy);
+    const colors = [
+      "#7c3aed",
+      "#ef4444",
+      "#22c55e",
+      "#3b82f6",
+      "#f97316",
+      "#eab308",
+    ];
 
-      let currentAngle = 0;
-      players.forEach((p: any, i: number) => {
-        // Jika total tiket > 0 pakai porsi, jika tidak bagi rata (untuk visual)
-        const slice = totalTickets > 0 
-          ? (p.tickets / totalTickets) * Math.PI * 2 
-          : (1 / players.length) * Math.PI * 2;
+    const content: SliceContent[] = [
+      { type: "img", index: 0 },
+      { type: "text", text: "NO LUCKY" },
+      { type: "img", index: 1 },
+      { type: "text", text: "10X DRAW" },
+      { type: "img", index: 2 },
+      { type: "text", text: "TRY AGAIN" },
+    ];
 
-        if (slice <= 0 && totalTickets > 0) return;
+    for (let i = 0; i < sliceCount; i++) {
+      const start = i * sliceAngle;
+      const end = start + sliceAngle;
 
-        const colors = ["#7c3aed", "#22c55e", "#3b82f6", "#f97316", "#eab308"];
-        const color = colors[i % colors.length];
-
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.arc(cx, cy, radius, currentAngle, currentAngle + slice);
-        ctx.closePath();
-
-        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-        grad.addColorStop(0, color);
-        grad.addColorStop(1, "#000");
-        
-        ctx.fillStyle = grad;
-        ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.2)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Icon & Teks
-        const mid = currentAngle + slice / 2;
-        const tx = cx + Math.cos(mid) * (radius * 0.65);
-        const ty = cy + Math.sin(mid) * (radius * 0.65);
-        const img = tokenImagesRef.current[i % tokenImagesRef.current.length];
-        
-        if (img && img.complete) {
-          ctx.drawImage(img, tx - 15, ty - 15, 30, 30);
-        }
-        
-        ctx.fillStyle = "white";
-        ctx.font = "bold 10px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(p.wallet?.slice(0, 4) || "P", tx, ty + 25);
-
-        currentAngle += slice; // UPDATE UNTUK PLAYER BERIKUTNYA
-      });
-      ctx.restore();
-
-      // --- 2. OVERLAY (STATIS) ---
-      // Border Roda
       ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-      ctx.strokeStyle = "#a855f7";
-      ctx.lineWidth = 6;
-      ctx.stroke();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, start, end);
+      ctx.closePath();
 
-      // Pointer Atas
-      ctx.fillStyle = "#facc15";
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - radius + 15);
-      ctx.lineTo(cx - 15, cy - radius - 10);
-      ctx.lineTo(cx + 15, cy - radius - 10);
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      grad.addColorStop(0, colors[i]);
+      grad.addColorStop(1, "#111");
+
+      ctx.fillStyle = grad;
       ctx.fill();
 
-      angle += velocity;
-      velocity *= 0.985;
+      ctx.strokeStyle = "#facc15"; // kuning
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-      if (velocity > 0.002) {
-        requestAnimationFrame(draw);
-      } else {
-        setIsSpinning(false);
-        finish();
-      }
+      const mid = start + sliceAngle / 2;
+
+const tx = cx + Math.cos(mid) * radius * 0.55;
+const ty = cy + Math.sin(mid) * radius * 0.55;
+
+const c = content[i];
+
+ctx.save();
+ctx.translate(tx, ty);
+
+// ❌ NO ROTATE (BIAR TEXT TETAP TEGAK)
+ctx.rotate(-rotation);
+
+if (c.type === "text") {
+  const displayText = c.text.replace("BONUS ", "");
+
+  let fontSize = 16;
+  if (displayText.length > 10) fontSize = 13;
+  if (displayText.length > 14) fontSize = 11;
+
+  ctx.fillStyle = "white";
+  ctx.font = `bold ${fontSize}px Arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  const words = displayText.split(" ");
+  let line = "";
+  let lines: string[] = [];
+
+  for (let w of words) {
+    const test = line + w + " ";
+    if (ctx.measureText(test).width > 80) {
+      lines.push(line);
+      line = w + " ";
+    } else {
+      line = test;
+    }
+  }
+  lines.push(line);
+
+  const lineHeight = 14;
+  const offsetY = -(lines.length - 1) * lineHeight / 2;
+
+  lines.forEach((l, i) => {
+    ctx.fillText(l.trim(), 0, offsetY + i * lineHeight);
+  });
+}
+
+if (c.type === "img") {
+  const img = tokenImagesRef.current[c.index];
+  if (img && img.complete) {
+    ctx.drawImage(img, -20, -20, 40, 40);
+  }
+}
+
+// ✅ RESTORE LOCAL (WAJIB UNTUK TEXT/IMG)
+ctx.restore();
+
+} // <- PENUTUP LOOP SLICE
+
+// ✅ RESTORE GLOBAL (INI YANG BIKIN POINTER GAK MUTER)
+ctx.restore();
+
+// 🔺 POINTER (FIXED, GAK IKUT ROTASI)
+ctx.fillStyle = "#facc15";
+ctx.beginPath();
+ctx.moveTo(cx, cy - radius + 25);
+ctx.lineTo(cx - 15, cy - radius);
+ctx.lineTo(cx + 15, cy - radius);
+ctx.closePath();
+ctx.fill();
+
+// 🔵 BORDER (TANPA POINTER LAGI)
+ctx.beginPath();
+ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+ctx.strokeStyle = "#a855f7";
+ctx.lineWidth = 10;
+
+if (!isSpinning) {
+  ctx.shadowColor = "#a855f7";
+  ctx.shadowBlur = 0;
+} else {
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+}
+
+ctx.stroke();
+
+};
+
+useEffect(() => {
+  drawWheel(0);
+}, [imagesReady]);
+
+const rewards: string[] = [
+  "GEN",
+  "NO LUCKY",
+  "PILL",
+  "BONUS 10X DRAW",
+  "JACKPOT",
+  "TRY AGAIN",
+];
+
+const getRewardByIndex = (index: number) => {
+  return rewards[index] || "UNKNOWN";
+};
+
+// 🎰 SPIN (DARI KODE LAMA LO)
+const spin = () => {
+  if (!wallet || isSpinning || myTickets <= 0 || !hasClaimed) return;
+
+  setIsSpinning(true);
+  setWinner(null);
+  setReward(null);
+
+  let angle = 0;
+
+  // 🔥 kecepatan awal (kenceng)
+  let velocity = 0.5 + Math.random() * 0.3;
+
+  const friction = 0.985; // makin kecil = makin cepat berhenti
+
+  const animate = () => {
+    angle += velocity;
+
+    // pelan pelan melambat
+    velocity *= friction;
+
+    // slow phase (buat lampu)
+    if (velocity < 0.08) {
+      setSlowPhase(true);
     }
 
-    function finish() {
-      const total = players.reduce((s: number, p: any) => s + p.tickets, 0);
-      let rand = Math.random() * total;
-      let winnerWallet = players[0]?.wallet || "UNKNOWN";
-      for (const p of players) {
-        if (rand < p.tickets) { winnerWallet = p.wallet; break; }
-        rand -= p.tickets;
-      }
+    drawWheel(angle);
 
-      const rewardData = pickReward();
-      setWinner(winnerWallet);
-      setReward(rewardData.label);
-      if (rewardData.label !== "JACKPOT") setJackpotPool(p => p + 1);
-      else setJackpotPool(50);
+    if (velocity > 0.002) {
+      requestAnimationFrame(animate);
+    } else {
+      setIsSpinning(false);
+      setSlowPhase(false);
+      const sliceCount = 6;
+
+      // 🔥 STOP DI POSISI TERAKHIR (acak, gak dipaksa tengah)
+      const finalAngle = angle % (Math.PI * 2);
+
+      const resultIndex = getResultFromAngle(finalAngle);
+
+      const rewardMap = [
+  "GEN",           // slice 0
+  "NO LUCKY",      // slice 1
+  "PILL",          // slice 2
+  "BONUS 10X DRAW",// slice 3
+  "JACKPOT",       // slice 4
+  "TRY AGAIN",     // slice 5
+];
+
+// 🔥 FIX ARAH INDEX
+const fixedIndex = (sliceCount - resultIndex) % sliceCount;
+
+const rewardText = rewardMap[resultIndex] ?? "UNKNOWN";
+
+      setWinner("You");
+      setReward(rewardText);
+
       setHasClaimed(false);
     }
+  };
 
-    draw();
-  }
+  animate();
+};
+
+const getResultFromAngle = (angle: number) => {
+  const sliceCount = 6;
+  const sliceAngle = (Math.PI * 2) / sliceCount;
+
+  const adjusted =
+    (Math.PI * 2 - angle + (3 * Math.PI) / 2) %
+    (Math.PI * 2);
+
+  const index =
+    Math.floor((adjusted + sliceAngle / 2) / sliceAngle) %
+    sliceCount;
+
+  return index;
+};
 
   return (
-    <div className="relative w-full h-full min-h-[600px] flex flex-col gap-10 p-8 bg-black/40 rounded-3xl border-4 border-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.6)]">
+    <div
+  className={
+    isSpinning
+      ? "relative w-full h-full min-h-[600px] flex flex-col gap-10 p-8 bg-black/40 rounded-3xl border-4 border-purple-500"
+      : "relative w-full h-full min-h-[600px] flex flex-col gap-10 p-8 bg-black/40 rounded-3xl border-4 border-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.6)]"
+  }
+>
+      
+      {/* HEADER */}
       <div className="flex flex-col items-center gap-2">
         <div className="flex items-center gap-2">
           <span className="text-xl">🎰</span>
-          <h2 className="text-purple-400 font-black text-xl tracking-wider uppercase">RAFFLE LOTTERY</h2>
-        </div>
-      </div>
-      
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[450px]">
-        <canvas ref={canvasRef} width={350} height={350} className="rounded-full border-[10px] border-purple-900/60 shadow-[0_0_60px_rgba(168,85,247,0.9)]" />
-        <div className="h-24 w-full flex items-center justify-center mt-4 px-2">
-          {winner ? (
-            <div className="w-full p-3 bg-zinc-900/80 border border-green-500/50 rounded-xl text-center">
-              <span className="text-green-400 font-bold">🏆 Winner: {winner}</span><br />
-              <span className="text-yellow-400 font-bold">🎁 Reward: {reward}</span>
-            </div>
-          ) : <p className="text-zinc-700 italic text-xs uppercase opacity-40">Waiting for draw results...</p>}
+          <h2 className="text-purple-400 font-black text-xl tracking-wider uppercase">
+            RAFFLE LOTTERY
+          </h2>
         </div>
       </div>
 
-      <div className="mt-auto w-full h-32 flex flex-col justify-start pt-10">
+      {/* WHEEL */}
+<div className="flex-1 flex flex-col items-center justify-center min-h-[450px]">
+
+  <div className="relative w-[350px] h-[350px] flex items-center justify-center">
+
+    {/* 🔥 BULB RING (LAMPU KELILING) */}
+    <div className="absolute inset-0 pointer-events-none">
+      {Array.from({ length: 24 }).map((_, i) => {
+  const angle = (i / 24) * Math.PI * 2;
+  const r = 175;
+
+  const x = Math.cos(angle) * r;
+  const y = Math.sin(angle) * r;
+
+  // ✅ STYLE DENGAN TYPE (INI YANG FIX MERAH)
+  const style: CSSProperties = {
+    position: "absolute",
+    left: `calc(50% + ${x}px - 6px)`,
+    top: `calc(50% + ${y}px - 6px)`,
+    background: `hsl(${(i * 360) / 24}, 100%, 60%)`,
+    animationDelay: `${i * 0.08}s`,
+  };
+
+  return (
+    <div
+      key={i}
+      className={`bulb ${isSpinning ? "bulb-on" : "bulb-off"}`}
+      style={style}
+    />
+  );
+})}
+    </div>
+
+    {/* 🎯 CANVAS LO (JANGAN DIUBAH LOGICNYA) */}
+    <canvas
+      ref={canvasRef}
+      width={350}
+      height={350}
+      className="rounded-full border-[12px] border-purple-900/60"
+    />
+
+  </div>
+</div>
+
+        <div className="h-24 w-full flex items-center justify-center mt-4 px-2">
+          {winner ? (
+            <div className="w-full p-3 bg-zinc-900/80 border border-green-500/50 rounded-xl text-center">
+              <span className="text-green-400 font-bold">
+                🏆 Winner: {winner}
+              </span>
+              <br />
+              <span className="text-yellow-400 font-bold">
+                🎁 Reward: {reward}
+              </span>
+            </div>
+          ) : (
+            <p className="text-zinc-700 italic text-xs uppercase opacity-40">
+              Waiting for draw results...
+            </p>
+          )}
+        </div>
+
+      {/* 🔥 BUTTON (LOGIC LAMA LO) */}
+      <div className="mt-auto w-full h-32 flex flex-col justify-start pt-9">
         <button
           onClick={spin}
           disabled={!wallet || isSpinning || myTickets <= 0 || !hasClaimed}
-          className={`w-full py-4 rounded-xl font-black text-white uppercase tracking-widest transition-all ${!wallet || isSpinning || myTickets <= 0 || !hasClaimed ? 'bg-zinc-800 text-zinc-500' : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:scale-[1.02]'}`}
+          className={`w-full py-4 rounded-xl font-black text-white uppercase tracking-widest transition-all ${
+            !wallet || isSpinning || myTickets <= 0 || !hasClaimed
+              ? "bg-zinc-800 text-zinc-500"
+              : "bg-gradient-to-r from-purple-600 to-blue-600 hover:scale-[1.02]"
+          }`}
         >
           {isSpinning ? "🎰 SPINNING..." : "🎟 DRAW WINNER"}
         </button>

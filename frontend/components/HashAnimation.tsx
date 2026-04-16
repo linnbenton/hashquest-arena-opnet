@@ -2,44 +2,76 @@
 
 import { useEffect, useState } from "react";
 
-export default function HashAnimation({ active }: { active:boolean }) {
+export default function HashAnimation({ active }: { active: boolean }) {
 
-  const [hash,setHash] = useState("000000")
+  const [hash, setHash] = useState("000000000000");
+  const [displayHash, setDisplayHash] = useState("000000000000");
+  const [power, setPower] = useState(0);
 
-  useEffect(()=>{
+  // 🔥 GENERATE HASH
+  useEffect(() => {
+    if (!active) return;
 
-    if(!active) return
-
-    const interval = setInterval(()=>{
-
-      const randomHash = Math.random()
+    const interval = setInterval(() => {
+      const randomHash = Math.floor(Math.random() * 1e12)
         .toString(16)
-        .substring(2,14)
+        .padStart(12, "0");
 
-      setHash(randomHash)
+      setHash(randomHash);
+    }, 400);
 
-    },200)
+    return () => clearInterval(interval);
+  }, [active]);
 
-    return ()=>clearInterval(interval)
+  // 🔥 BUFFER HASH
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDisplayHash(hash);
+    }, 50);
 
-  },[active])
+    return () => clearTimeout(t);
+  }, [hash]);
 
-  if(!active) return null
+  // 🔥 LISTEN POWER DARI HASHRATE
+  useEffect(() => {
+    const handler = (e: any) => {
+      setPower(e.detail);
+    };
 
-  return(
+    window.addEventListener("gpu-power", handler);
+    return () => window.removeEventListener("gpu-power", handler);
+  }, []);
 
+  return (
     <div className="flex flex-col items-center mt-4">
 
       <div className="text-cyan-400 text-sm">
         Mining Hash
       </div>
 
-      <div className="font-mono text-green-400 text-lg animate-pulse drop-shadow-[0_0_10px_#00ffcc]">
-        {hash}
+      <div
+        className="
+          gpu-layer
+          text-stable
+          font-mono
+          text-green-400
+          text-lg
+          w-[150px]
+          flex
+          justify-center
+          gap-[1px]
+        "
+        style={{
+          textShadow: `0 0 ${8 + power * 0.25}px #00ffcc`
+        }}
+      >
+        {displayHash.split("").map((c, i) => (
+          <span key={i} className="inline-block w-[10px] text-center">
+            {c}
+          </span>
+        ))}
       </div>
 
     </div>
-
-  )
-
+  );
 }

@@ -38,7 +38,13 @@ if (isClient) {
 
       <div className="relative z-10 w-full flex flex-col items-center max-w-6xl">
         <h1 className="text-4xl font-black text-cyan-400 mb-8 text-center drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]">
-          ⚡ HASHQUEST ARENA 🚀
+          <span className="lightning-wrap">
+  ⚡
+  <span className="lightning-flash" />
+</span> HASHQUEST ARENA <span className="rocket-wrap">
+  <span className="rocket-icon">🚀</span>
+  <span className="rocket-fire"></span>
+</span>
         </h1>
 
         <div className="mb-6 text-yellow-400 font-bold text-lg relative">

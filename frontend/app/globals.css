@@ -116,9 +116,9 @@ body {
     background-image: none !important;
 }
 
-/* Hilangkan warna bawaan dari layer di atas body */
-main, div {
-    --tw-bg-opacity: 0 !important;
+/* Hanya target container utama */
+main {
+  background-color: transparent !important;
 }
 
 /* Jika menggunakan Tailwind v4, terkadang variabel @theme mengunci warna */
@@ -127,4 +127,341 @@ main, div {
     --tw-ring-offset-shadow: 0 0 #0000;
     --tw-ring-shadow: 0 0 #0000;
     --tw-shadow: 0 0 #0000;
+}
+
+/* 🎡 3D WHEEL EFFECT */
+.wheel-3d {
+  transform: rotateX(18deg) rotateY(0deg);
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease;
+}
+
+/* Hover biar hidup */
+.wheel-3d:hover {
+  transform: rotateX(18deg) rotateY(10deg) scale(1.03);
+}
+
+/* Glow + depth */
+.wheel-3d canvas {
+  box-shadow:
+    0 20px 40px rgba(0,0,0,0.8),
+    0 0 30px rgba(168,85,247,0.6),
+    inset 0 0 20px rgba(255,255,255,0.1);
+}
+
+.wheel-3d::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), transparent 60%);
+  pointer-events: none;
+}
+
+@keyframes heatMove {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+/* 🔒 FORCE GPU LAYER UNTUK ELEMEN REALTIME */
+.gpu-layer {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* 🔒 TEXT RENDER STABLE */
+.text-stable {
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes neonPulse {
+  0% {
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.6),
+                0 0 20px rgba(197, 240, 9, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgb(73, 20, 172),
+                0 0 60px rgba(85, 247, 171, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(168,85,247,0.6),
+                0 0 20px rgba(241, 48, 129, 0.4);
+  }
+}
+
+.neon-wheel {
+  animation: neonPulse 1.5s ease-in-out infinite;
+}
+
+/* base (mati saat idle) */
+.neon-wheel {
+  box-shadow: none;
+}
+
+/* saat spin */
+.neon-spin {
+  animation: neonPulse 0.6s linear infinite;
+}
+
+/* saat hampir berhenti (lebih halus) */
+.neon-slow {
+  animation: neonPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes neonPulse {
+  0% {
+    box-shadow: 0 0 8px #f80000,
+                0 0 20px #fffb00;
+  }
+  50% {
+    box-shadow: 0 0 25px #00ff00,
+                0 0 70px #8300fd,
+                0 0 120px #1900ff;
+  }
+  100% {
+    box-shadow: 0 0 8px #ff00ff,
+                0 0 20px #ffffff;
+  }
+}
+
+.bulb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #333;
+}
+
+/* mati */
+.bulb-off {
+  background: #444;
+  box-shadow: none;
+}
+
+/* nyala neon */
+.bulb-on {
+  background: currentColor;
+  box-shadow:
+    0 0 8px currentColor,
+    0 0 16px currentColor,
+    0 0 32px currentColor,
+    0 0 60px currentColor,
+    0 0 100px currentColor;
+  animation: bulbBlink 0.6s linear infinite;
+}
+
+/* efek kedip */
+@keyframes bulbBlink {
+  0%   { opacity: 0.3; transform: scale(0.8); }
+  50%  { opacity: 1;   transform: scale(1.4); }
+  100% { opacity: 0.3; transform: scale(0.8); }
+}
+
+@keyframes bulbBlink {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.7); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes rocketShake {
+  0% { transform: translateX(0px); }
+  25% { transform: translateX(0.5px); }
+  50% { transform: translateX(-0.5px); }
+  75% { transform: translateX(0.5px); }
+  100% { transform: translateX(0px); }
+}
+
+.rocket-wrap {
+  position: relative;
+  display: inline-block;
+
+  animation:
+    rocketFloat 1.8s ease-in-out infinite,
+    rocketShake 0.2s linear infinite;
+}
+
+.rocket-wrap:hover {
+  animation:
+    rocketFloat 0.6s ease-in-out infinite,
+    rocketShake 0.08s linear infinite;
+  transform: scale(1.15);
+}
+
+.animate-rocket:hover {
+  transform: translateY(-10px) scale(1.2);
+}
+
+.animate-rocket {
+  display: inline-block;
+  animation: rocketFloat 1.8s ease-in-out infinite;
+}
+
+.rocket-wrap:hover .rocket-fire {
+  height: 1em;
+  opacity: 1;
+}
+
+/* =========================
+   🚀 ROCKET WRAPPER
+========================= */
+.rocket-wrap {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+}
+
+/* =========================
+   🚀 FLOAT ANIMATION
+========================= */
+@keyframes rocketFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+
+  20% {
+    transform: translateY(-4px) rotate(1deg) scale(1.02);
+  }
+
+  40% {
+    transform: translateY(-10px) rotate(-2deg) scale(1.03);
+  }
+
+  60% {
+    transform: translateY(-6px) rotate(2deg) scale(1.02);
+  }
+
+  80% {
+    transform: translateY(-12px) rotate(-1deg) scale(1.04);
+  }
+
+  100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+}
+
+/* =========================
+   🔥 ROCKET FIRE
+========================= */
+.rocket-fire {
+  position: absolute;
+
+  left: -2%;
+  bottom: -0.075em; /* 🔥 SWEET SPOT */
+
+  transform: translateX(-50%);
+  z-index: 3;
+
+  width: 0.4em;
+  height: 0.9em;
+
+  background: radial-gradient(circle, #facc15, #f97316, transparent);
+  border-radius: 50%;
+
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+  animation: fireFlicker 0.12s infinite;
+
+  filter: drop-shadow(0 0 4px #f97316);
+}
+
+/* =========================
+   🔥 FIRE INNER GLOW
+========================= */
+.rocket-fire::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, #ffffff, transparent);
+  opacity: 0.6;
+}
+
+/* =========================
+   🔥 FIRE FLICKER
+========================= */
+@keyframes fireFlicker {
+  0% {
+    height: 8px;
+    opacity: 0.7;
+  }
+  50% {
+    height: 12px;
+    opacity: 1;
+  }
+  100% {
+    height: 8px;
+    opacity: 0.7;
+  }
+}
+
+/* FIX EMOJI POSITION */
+.rocket-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1em;
+  z-index: 1;
+}
+
+@keyframes electricPulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+    text-shadow: 0 0 2px #22d3ee;
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+    text-shadow: 0 0 15px #22d3ee, 0 0 25px #22d3ee;
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+    text-shadow: 0 0 2px #22d3ee;
+  }
+}
+
+.animate-electric {
+  display: inline-block;
+  animation: electricPulse 1s ease-in-out infinite;
+}
+
+.lightning-wrap {
+  position: relative;
+  display: inline-block;
+  animation: electricPulse 1s ease-in-out infinite;
+}
+
+@keyframes electricPulse {
+  0% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 0.6; transform: scale(1); }
+}
+
+/* ⚡ FLASH NYAMBAR */
+.lightning-flash {
+  position: absolute;
+  inset: -10px;
+  background: radial-gradient(circle, rgba(34,211,238,0.8), transparent 70%);
+  opacity: 0;
+  animation: lightningStrike 2s infinite;
+}
+
+@keyframes lightningStrike {
+  0%, 90%, 100% {
+    opacity: 0;
+  }
+  92% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 0;
+  }
+  96% {
+    opacity: 1;
+  }
+  98% {
+    opacity: 0;
+  }
 }

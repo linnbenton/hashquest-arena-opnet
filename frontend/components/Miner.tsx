@@ -6,8 +6,6 @@ import HashAnimation from "./HashAnimation";
 import MiningParticles from "./MiningParticles";
 import HashrateMeter from "./HashrateMeter";
 
-type TxStatus = "idle" | "loading" | "success" | "failed";
-
 const OPNET_CONTRACT =
   process.env.NEXT_PUBLIC_OPNET_CONTRACT ||
   "opt1sqzxnyyygv27euyf5wvjhfd32frhn3f2mku2l0q83";
@@ -40,18 +38,22 @@ export default function Miner({ wallet, setWalletParent, onTickets, onClaim }: a
   const [walletError, setWalletError] = useState("");
 
   const [hasClaimed, setHasClaimed] = useState(false);
+  const [gpuPower, setGpuPower] = useState(0);
   
   const [mining, setMining] = useState(false);
   const [reward, setReward] = useState(0);
+
   const [claimedTickets, setClaimedTickets] = useState(0);
 
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
 
+  const [txStatus, setTxStatus] = useState<string | null>(null);
+  const [lastHash, setLastHash] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+
   const [cooldown, setCooldown] = useState(false);
 
-  const [txStatus, setTxStatus] = useState<TxStatus>("idle");
-  const [txHash, setTxHash] = useState("");
   const [showTxPopup, setShowTxPopup] = useState(false);
 
   const [isSpinning, setIsSpinning] = useState(false);
@@ -99,6 +101,7 @@ async function connectMetaMask() {
 
   } catch (err) {
     console.error("MetaMask error:", err);
+    setTxStatus("⚠️ Network unclear...");
   }
 }
   async function connectWallet() {
@@ -140,16 +143,24 @@ setWalletError("");
   }, [mining]);
 
   useEffect(() => {
+  if (wallet) {
+    setWalletError("");
+  }
+}, [wallet]);
+
+  useEffect(() => {
     onTickets?.(claimedTickets + Math.floor(reward));
   }, [reward, claimedTickets]);
 
-  function startMining() {
-    if (!wallet || !walletType) {
-  return setWalletError("Connect wallet first");
-}
-    setWalletError("");
-    setMining(true);
+  const startMining = () => {
+  if (!wallet) {
+    setWalletError("Connect wallet first");
+    return;
   }
+
+  setWalletError("");
+  setMining(true);
+};
 
   function stopMining() {
     setMining(false);
@@ -162,6 +173,7 @@ setWalletError("");
   async function claimReward() {
     setIsClaiming(true);
     setTxStatus("loading");
+    setTxStatus("⏳ Sending...");
     console.log("🧠 CONTRACT:", OPNET_CONTRACT);
 
     try {
@@ -248,6 +260,7 @@ setWalletError("");
 
         } catch (err) {
           console.error("❌ TX FAILED:", err);
+          setTxStatus("⚠️ Network unclear...");
           result = { txid: null };
         }
 
@@ -378,7 +391,7 @@ setWalletError("");
         <MiningParticles />
 
         {/* Header Section */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-8">
           <div className="flex items-center gap-2">
             <span className="text-xl">⛏️</span>
             <h2 className="text-cyan-400 font-black text-xl tracking-wider uppercase drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]">
@@ -386,13 +399,34 @@ setWalletError("");
             </h2>
           </div>
           {wallet && (
-             <div className="flex flex-col items-center gap-1">
-                <span className="text-[10px] text-cyan-500/50 font-mono tracking-tighter uppercase">Active Session</span>
-                <p className="text-green-400 text-[10px] font-mono bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">
-                  {wallet.slice(0, 6)}...{wallet.slice(-4)}
-                </p>
-                <button onClick={() => { setWalletParent?.(""); setWalletType(""); setMining(false); }} className="text-[9px] text-red-400 hover:text-red-300 underline underline-offset-2 uppercase font-bold">Disconnect</button>
-             </div>
+            <div className="flex justify-center items-center py-1 px-6 bg-white/5 rounded-2xl border border-white/10 shadow-inner w-full">
+
+  <div className="flex flex-col items-center gap-[3px] w-full">
+
+    <span className="text-[9px] text-cyan-500/50 font-mono uppercase tracking-tight">
+      Active Session
+    </span>
+
+    <span className="text-green-400 text-[13px] font-mono">
+      {typeof wallet === "string"
+        ? `${wallet.slice(0, 6)}...${wallet.slice(-4)}`
+        : "-"}
+    </span>
+
+    <button
+      onClick={() => {
+        setWalletParent?.("");
+        setWalletType("");
+        setMining(false);
+      }}
+      className="text-[9px] text-red-400 hover:text-red-300 font-bold"
+    >
+      DISCONNECT
+    </button>
+
+  </div>
+
+</div>
           )}
         </div>
 
@@ -409,32 +443,63 @@ setWalletError("");
           </div>
         )}
 
-        {/* Info Panel: Reward & Tickets */}
-        <div className="flex flex-col items-center gap-1 w-full text-center">
-          <p className="text-3xl font-black text-yellow-400 tabular-nums tracking-tighter drop-shadow-[0_2px_10px_rgba(250,204,21,0.4)]">
-            {reward.toFixed(4)}
-          </p>
-          <div className="flex items-center gap-2 text-cyan-200 font-bold text-xs uppercase tracking-widest bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
-            <span>🎟 Tickets:</span>
-            <span className="text-white">{claimedTickets + Math.floor(reward)}</span>
-          </div>
-        </div>
+        {/* 🔒 LOCKED INFO + ANIMATION PANEL */}
+<div className="h-[240px] flex flex-col justify-between items-center w-full text-center">
 
-        {/* Animation & Meter */}
-        <div className="w-full space-y-4">
-          <HashAnimation active={mining} />
-          <HashrateMeter mining={mining} />
-        </div>
+  {/* 💰 REWARD */}
+  <div className="h-[45px] flex items-center justify-center">
+    <div className="relative text-3xl font-black tabular-nums tracking-tighter">
+      <span className="invisible">0000.0000</span>
+      <span className="absolute inset-0 text-yellow-400 drop-shadow-[0_2px_10px_rgba(250,204,21,0.4)]">
+        {reward.toFixed(4)}
+      </span>
+    </div>
+  </div>
 
-        {/* Action Buttons: Start & Stop */}
-        <div className="flex gap-4 w-full">
-          <button onClick={startMining} className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-xl font-black text-white uppercase tracking-wider transition-all shadow-[0_4px_0_#15803d] active:translate-y-1 active:shadow-none">
-            Start
-          </button>
-          <button onClick={stopMining} className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-xl font-black text-white uppercase tracking-wider transition-all shadow-[0_4px_0_#b91c1c] active:translate-y-1 active:shadow-none">
-            Stop
-          </button>
-        </div>
+  {/* 🎟️ TICKETS */}
+  <div className="h-[35px] flex items-center justify-center">
+    <div className="flex items-center gap-2 text-cyan-200 font-bold text-xs uppercase tracking-widest bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
+      <span>🎟 Tickets:</span>
+
+      <div className="relative text-white tabular-nums">
+        <span className="invisible">0000</span>
+        <span className="absolute inset-0">
+          {claimedTickets + Math.floor(reward)}
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  {/* 🔢 HASH */}
+  <div className="h-[70px] flex items-center justify-center w-full">
+    <HashAnimation active={mining} />
+  </div>
+
+  {/* ⚡ GPU */}
+  <div className="h-[80px] flex items-center justify-center w-full">
+    <HashrateMeter mining={mining} />
+  </div>
+
+</div>
+
+
+{/* 🔘 ACTION BUTTONS (TETAP) */}
+<div className="flex gap-4 w-full">
+  <button
+    onClick={startMining}
+    className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-xl font-black text-white uppercase tracking-wider transition-all shadow-[0_4px_0_#15803d] active:translate-y-1 active:shadow-none"
+  >
+    Start
+  </button>
+
+  <button
+    onClick={stopMining}
+    className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-xl font-black text-white uppercase tracking-wider transition-all shadow-[0_4px_0_#b91c1c] active:translate-y-1 active:shadow-none"
+  >
+    Stop
+  </button>
+</div>
 
         {/* --- CONTAINER TOMBOL (Gunakan mt-auto) --- */}
 {/* CONTAINER UTAMA TOMBOL (Mengunci Posisi di Dasar Kotak) */}

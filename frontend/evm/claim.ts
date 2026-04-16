@@ -10,7 +10,13 @@ export async function claimEVMReward() {
 
   const tx = await contract.claimReward();
 
-  await tx.wait();
+  const receipt = await tx.wait();
+
+if (receipt.status === 1) {
+
+} else {
+  
+}
 
   return tx.hash;
 }
