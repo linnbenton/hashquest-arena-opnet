@@ -196,6 +196,17 @@ setWalletError("");
           body: JSON.stringify({ wallet }),
         });
 
+              const data = await res.json();
+
+      console.log("CLAIM RESPONSE:", data);
+
+      if (data?.tx) {
+        setTxHash(data.tx);
+      } else {
+        console.error("TX HASH NOT FOUND");
+        setTxHash(null);
+      }
+
         if (res.ok) {
           const data = await res.json();
           serverReward = data.reward || 0;
@@ -376,10 +387,50 @@ setWalletError("");
             </svg>
             <p className="text-gray-400 text-xs">Transaction ID:</p>
             <p className="text-white text-xs mb-4 break-all font-mono">{txHash}</p>
-            <div className="flex gap-2 justify-center mb-4">
-              <button onClick={() => window.open(`https://mempool.opnet.org/testnet4/tx/${txHash}`, "_blank")} className="px-3 py-2 rounded text-xs text-white bg-orange-500 hover:bg-orange-600 transition">View Mempool</button>
-              <button onClick={() => window.open(`https://opscan.org/tx/${txHash}?network=op_testnet`, "_blank")} className="px-3 py-2 rounded text-xs text-white bg-orange-500 hover:bg-orange-600 transition">View OP_SCAN</button>
-            </div>
+<div className="flex flex-col items-center gap-2 mb-4">
+  
+  {/* ROW ATAS */}
+  <div className="flex gap-2 justify-center">
+    <button
+      onClick={() =>
+        window.open(
+          `https://mempool.opnet.org/testnet4/tx/${txHash}`,
+          "_blank"
+        )
+      }
+      className="px-3 py-2 rounded text-xs text-white bg-orange-500 hover:bg-orange-600 transition"
+    >
+      View Mempool
+    </button>
+
+    <button
+      onClick={() =>
+        window.open(
+          `https://opscan.org/tx/${txHash}?network=op_testnet`,
+          "_blank"
+        )
+      }
+      className="px-3 py-2 rounded text-xs text-white bg-orange-500 hover:bg-orange-600 transition"
+    >
+      View OP_SCAN
+    </button>
+  </div>
+
+  {/* 🔥 GENLAYER BUTTON (DI BAWAH, CENTER) */}
+  {txHash && (
+    <button
+      onClick={() =>
+        window.open(
+          `https://zksync-os-testnet-genlayer.explorer.zksync.dev/tx/${txHash}`,
+          "_blank"
+        )
+      }
+      className="px-3 py-2 rounded text-xs text-white bg-purple-600 hover:bg-purple-700 transition"
+    >
+      🔍 View on GenLayer
+    </button>
+  )}
+</div>
           </div>
         </div>
       )}

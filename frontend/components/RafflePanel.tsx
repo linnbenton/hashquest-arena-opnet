@@ -15,6 +15,7 @@ export default function RafflePanel({
 }: any) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tokenImagesRef = useRef<HTMLImageElement[]>([]);
+  const [targetLabel, setTargetLabel] = useState<string | null>(null);
 
   const [imagesReady, setImagesReady] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -22,8 +23,15 @@ export default function RafflePanel({
   const [reward, setReward] = useState<string | null>(null);
 
   const [slowPhase, setSlowPhase] = useState(false);
+  const [pointerHit, setPointerHit] = useState(false);
+
+  const spinSound = useRef<HTMLAudioElement | null>(null);
+  const clickSound = useRef<HTMLAudioElement | null>(null);
+  const winSound = useRef<HTMLAudioElement | null>(null);
+  const jackpotSound = useRef<HTMLAudioElement | null>(null);
 
   const myTickets = players?.[0]?.tickets || 0;
+  const lastTickRef = useRef(0);
 
   // 🔥 LOAD IMAGE
   useEffect(() => {
@@ -50,6 +58,21 @@ export default function RafflePanel({
       return img;
     });
   }, []);
+
+      useEffect(() => {
+  spinSound.current = new Audio("/spin.mp3");
+  spinSound.current.loop = true;
+  spinSound.current.volume = 0.4;
+
+  clickSound.current = new Audio("/click.mp3");
+  clickSound.current.volume = 0.6;
+
+  winSound.current = new Audio("/win.mp3");
+  winSound.current.volume = 0.8;
+
+  jackpotSound.current = new Audio("/jackpot.mp3");
+  jackpotSound.current.volume = 1;
+}, []);
 
   // 🎨 DRAW WHEEL (tetap)
   const drawWheel = (rotation = 0) => {
@@ -223,6 +246,27 @@ const getRewardByIndex = (index: number) => {
 const spin = () => {
   if (!wallet || isSpinning || myTickets <= 0 || !hasClaimed) return;
 
+  const rewardMap = [
+  "GEN",
+  "NO LUCKY",
+  "PILL",
+  "BONUS 10X DRAW",
+  "JACKPOT",
+  "TRY AGAIN",
+];
+
+const randomTarget =
+  rewardMap[Math.floor(Math.random() * rewardMap.length)];
+
+setTargetLabel(randomTarget);
+
+  clickSound.current?.play();
+
+  if (spinSound.current) {
+    spinSound.current.currentTime = 0;
+    spinSound.current.play();
+  }
+
   setIsSpinning(true);
   setWinner(null);
   setReward(null);
@@ -230,19 +274,57 @@ const spin = () => {
   let angle = 0;
 
   // 🔥 kecepatan awal (kenceng)
-  let velocity = 0.5 + Math.random() * 0.3;
+  let velocity = 0.6 + Math.random() * 0.4; // lebih kenceng awal
 
-  const friction = 0.985; // makin kecil = makin cepat berhenti
+  const friction = 0.992; // lebih lambat berhenti
 
   const animate = () => {
-    angle += velocity;
+  angle += velocity;
 
-    // pelan pelan melambat
-    velocity *= friction;
+  // 🔔 TICK PER SLICE
+  const sliceAngle = (Math.PI * 2) / 6;
+  const currentTick = Math.floor(angle / sliceAngle);
+
+  if (currentTick !== lastTickRef.current) {
+  lastTickRef.current = currentTick;
+
+  if (clickSound.current) {
+    const v = Math.min(1, velocity);
+
+    // 🎧 volume dinamis
+    clickSound.current.volume = 0.3 + v * 0.5;
+
+    // ⚡ pitch dinamis (INI YANG LO MAU)
+    clickSound.current.playbackRate = 0.8 + v * 0.4;
+
+    clickSound.current.currentTime = 0;
+    clickSound.current.play();
+  }
+}
+
+  // pelan pelan melambat
+  velocity *= friction;
 
     // slow phase (buat lampu)
     if (velocity < 0.08) {
       setSlowPhase(true);
+    }
+
+    if (velocity < 0.08) {
+      velocity *= 0.98;
+    }
+
+    // 🎧 SYNC SOUND DENGAN KECEPATAN
+    if (spinSound.current) {
+      spinSound.current.playbackRate = 0.6 + velocity * 0.6;
+    }
+
+    // 🎧 TENSION: volume turun saat mendekati stop
+    if (spinSound.current) {
+      const minVol = 0.15;   // jangan sampai hilang total
+      const maxVol = 0.4;    // volume awal yang sudah kita set
+      const normalized = Math.min(1, velocity); // 0..1
+      spinSound.current.volume = minVol + (maxVol - minVol) * normalized;
     }
 
     drawWheel(angle);
@@ -250,34 +332,63 @@ const spin = () => {
     if (velocity > 0.002) {
       requestAnimationFrame(animate);
     } else {
-      setIsSpinning(false);
-      setSlowPhase(false);
-      const sliceCount = 6;
 
-      // 🔥 STOP DI POSISI TERAKHIR (acak, gak dipaksa tengah)
-      const finalAngle = angle % (Math.PI * 2);
+  // 🛑 stop spin sound
+  if (spinSound.current) {
+    spinSound.current.pause();
+    spinSound.current.currentTime = 0;
+  }
 
-      const resultIndex = getResultFromAngle(finalAngle);
+  // 🎬 FREEZE FRAME (delay sedikit)
+  setTimeout(() => {
 
-      const rewardMap = [
-  "GEN",           // slice 0
-  "NO LUCKY",      // slice 1
-  "PILL",          // slice 2
-  "BONUS 10X DRAW",// slice 3
-  "JACKPOT",       // slice 4
-  "TRY AGAIN",     // slice 5
-];
+  setIsSpinning(false);
+  setSlowPhase(false);
 
-// 🔥 FIX ARAH INDEX
-const fixedIndex = (sliceCount - resultIndex) % sliceCount;
+  const sliceCount = 6;
+  const finalAngle = angle % (Math.PI * 2);
+  const resultIndex = getResultFromAngle(finalAngle);
 
-const rewardText = rewardMap[resultIndex] ?? "UNKNOWN";
+  const rewardMap = [
+    "GEN",
+    "NO LUCKY",
+    "PILL",
+    "BONUS 10X DRAW",
+    "JACKPOT",
+    "TRY AGAIN",
+  ];
 
-      setWinner("You");
-      setReward(rewardText);
+  const rewardText = rewardMap[resultIndex] ?? "UNKNOWN";
 
-      setHasClaimed(false);
-    }
+  setWinner("You");
+  setReward(rewardText);
+
+  // 🎯 pointer bounce trigger
+setPointerHit(true);
+setTimeout(() => setPointerHit(false), 200);
+
+  // 🔊 SOUND (WAJIB DI SINI)
+  if (rewardText === "JACKPOT") {
+    jackpotSound.current?.play();
+
+    document.body.classList.add("shake");
+    setTimeout(() => {
+      document.body.classList.remove("shake");
+    }, 1200);
+
+  } else if (
+    rewardText !== "NO LUCKY" &&
+    rewardText !== "TRY AGAIN"
+  ) {
+    winSound.current?.play();
+  }
+
+  setHasClaimed(false);
+
+}, 120);
+
+  return;
+}
   };
 
   animate();
@@ -300,12 +411,11 @@ const getResultFromAngle = (angle: number) => {
 
   return (
     <div
-  className={
-    isSpinning
-      ? "relative w-full h-full min-h-[600px] flex flex-col gap-10 p-8 bg-black/40 rounded-3xl border-4 border-purple-500"
-      : "relative w-full h-full min-h-[600px] flex flex-col gap-10 p-8 bg-black/40 rounded-3xl border-4 border-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.6)]"
-  }
->
+      className={`relative w-full h-full min-h-[600px] flex flex-col gap-10 p-8 bg-black/40 rounded-3xl border-4 border-purple-500 transition-all duration-300
+      ${isSpinning ? "" : "shadow-[0_0_25px_rgba(168,85,247,0.6)]"}
+      ${winner ? "result-glow" : ""}
+`    }
+    >
       
       {/* HEADER */}
       <div className="flex flex-col items-center gap-2">
@@ -315,6 +425,11 @@ const getResultFromAngle = (angle: number) => {
             RAFFLE LOTTERY
           </h2>
         </div>
+
+        {/* 🧠 PENJELAS GAME */}
+        <p className="text-xs text-zinc-400 text-center">
+          Match the wheel with the target to win 🎯
+        </p>
       </div>
 
       {/* WHEEL */}
@@ -355,10 +470,20 @@ const getResultFromAngle = (angle: number) => {
       ref={canvasRef}
       width={350}
       height={350}
-      className="rounded-full border-[12px] border-purple-900/60"
+      className={`rounded-full border-[12px] border-purple-900/60 ${
+        pointerHit ? "pointer-bounce" : ""
+      }`}
     />
 
   </div>
+
+  <div className="text-center mt-2">
+  <span className="text-xs text-zinc-400">TARGET</span>
+  <div className="text-lg font-black text-yellow-300">
+    {targetLabel ?? "-"}
+  </div>
+</div>
+
 </div>
 
         <div className="h-24 w-full flex items-center justify-center mt-4 px-2">
@@ -368,9 +493,31 @@ const getResultFromAngle = (angle: number) => {
                 🏆 Winner: {winner}
               </span>
               <br />
-              <span className="text-yellow-400 font-bold">
+
+              <span
+                className={`font-bold ${
+                  reward === "JACKPOT"
+                    ? "text-yellow-300 animate-pulse text-xl"
+                    : "text-yellow-400"
+                }`}
+              >
                 🎁 Reward: {reward}
               </span>
+
+              <br />
+
+              {/* 🎯 HIT / MISS */}
+              {reward && targetLabel && (
+                <span
+                  className={`font-bold ${
+                    reward === targetLabel
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {reward === targetLabel ? "🎯 HIT!" : "❌ MISS"}
+                </span>
+              )}
             </div>
           ) : (
             <p className="text-zinc-700 italic text-xs uppercase opacity-40">
@@ -392,7 +539,29 @@ const getResultFromAngle = (angle: number) => {
         >
           {isSpinning ? "🎰 SPINNING..." : "🎟 DRAW WINNER"}
         </button>
+
+        {/* ⚠️ REASON TEXT */}
+        {(!wallet || myTickets <= 0 || !hasClaimed) && !isSpinning && (
+          <p className="text-xs text-zinc-500 text-center mt-2">
+            {!wallet && "🔌 Connect wallet"}
+            {wallet && myTickets <= 0 && "🎟 No tickets"}
+            {wallet && myTickets > 0 && !hasClaimed && "⚠️ Claim first"}
+          </p>
+        )}
       </div>
+
+      {reward === "JACKPOT" && (
+  <div className="confetti-container">
+    {Array.from({ length: 40 }).map((_, i) => (
+      <span
+        key={i}
+        className="confetti"
+        style={{ left: `${Math.random() * 100}%` }}
+      />
+    ))}
+  </div>
+)}
+
     </div>
   );
 }
