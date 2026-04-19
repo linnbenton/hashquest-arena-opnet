@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
 // 🧠 SIMPLE MEMORY (ANTI-SPAM / ANTI-CHEAT RINGAN)
 const lastClaims: Record<string, number> = {};
@@ -9,7 +9,7 @@ export async function POST(req: Request) {
 
     const { wallet, reward, txid, timestamp } = body;
 
-    console.log("🧠 GenLayer REAL CALL:", {
+    console.log('🧠 GenLayer REAL CALL:', {
       wallet,
       reward,
       txid,
@@ -17,11 +17,8 @@ export async function POST(req: Request) {
     });
 
     // ✅ VALIDASI DASAR
-    if (!wallet || typeof reward !== "number") {
-      return NextResponse.json(
-        { error: "Invalid data" },
-        { status: 400 }
-      );
+    if (!wallet || typeof reward !== 'number') {
+      return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
     }
 
     // 🔒 ANTI-CHEAT (COOLDOWN 3 DETIK)
@@ -29,13 +26,13 @@ export async function POST(req: Request) {
     const last = lastClaims[wallet] || 0;
 
     if (now - last < 3000) {
-      console.log("🚫 Anti-spam triggered");
+      console.log('🚫 Anti-spam triggered');
 
       return NextResponse.json({
-        status: "blocked",
+        status: 'blocked',
         multiplier: 0,
         rewardFinal: 0,
-        reason: "Too fast claim",
+        reason: 'Too fast claim',
       });
     }
 
@@ -55,7 +52,7 @@ export async function POST(req: Request) {
     // 🎰 LUCK SYSTEM (RARE EVENT)
     if (luckyRoll > 0.95) {
       multiplier = 10;
-      console.log("💰 JACKPOT HIT!");
+      console.log('💰 JACKPOT HIT!');
     }
 
     // 🧠 PENALTY (LOW SKILL)
@@ -63,9 +60,13 @@ export async function POST(req: Request) {
       multiplier = 0;
     }
 
-    const rewardFinal = reward * multiplier;
+    let rewardFinal = reward * multiplier;
 
-    console.log("🧠 AI RESULT:", {
+    if (rewardFinal <= 0) {
+      rewardFinal = 1; // ✅ minimal 1 ticket per transaksi
+    }
+
+    console.log('🧠 AI RESULT:', {
       reward,
       multiplier,
       rewardFinal,
@@ -74,19 +75,15 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({
-      status: "executed",
+      status: 'executed',
       multiplier,
       rewardFinal,
       randomFactor,
       luckyRoll,
     });
-
   } catch (err: any) {
-    console.error("❌ GenLayer API error:", err);
+    console.error('❌ GenLayer API error:', err);
 
-    return NextResponse.json(
-      { error: err.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
