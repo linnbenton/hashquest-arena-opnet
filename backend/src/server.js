@@ -1,8 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const crypto = require("crypto");
 const { ethers } = require("ethers");
-
 require("dotenv").config();
 
 const redis = require("./infra/redis");
@@ -13,14 +11,57 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT;
+/**
+ * ======================
+ * BASIC ROUTES
+ * ======================
+ */
+app.get("/", (req, res) => {
+  res.json({ status: "backend alive" });
+});
 
-// 🔐 SIGNER (ONLY FOR OFFCHAIN SIGN)
-const signer = new ethers.Wallet(process.env.SIGNER_PK);
-console.log("SIGNER:", signer.address);
+app.get("/api/spin", (req, res) => {
+  res.json({ ok: true, message: "spin working" });
+});
 
 /**
- * 🔥 CLAIM ENTRY POINT (QUEUE-BASED, STATLESS)
+ * ======================
+ * SIGNER INIT (SECURE)
+ * ======================
+ */
+if (!process.env.SIGNER_PK) {
+  throw new Error("SIGNER_PK not set in environment variables");
+}
+
+const signer = new ethers.Wallet(process.env.SIGNER_PK);
+console.log("SIGNER READY:", signer.address);
+
+/**
+ * ======================
+ * HEALTH CHECK
+ * ======================
+ */
+app.get("/health", async (req, res) => {
+  try {
+    await redis.ping?.();
+
+    res.json({
+      status: "ok",
+      redis: "connected",
+      queue: "active",
+    });
+  } catch (e) {
+    res.status(500).json({
+      status: "error",
+      redis: "disconnected",
+    });
+  }
+});
+
+/**
+ * ======================
+ * CLAIM ENDPOINT
+ * ======================
  */
 app.post("/api/claim", async (req, res) => {
   try {
@@ -30,21 +71,25 @@ app.post("/api/claim", async (req, res) => {
       return res.status(400).json({ error: "INVALID_INPUT" });
     }
 
-    // -----------------------------
-    // 🔒 1. RATE LIMIT (IP)
-    // -----------------------------
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const rateKey = `ip:${ip}`;
+    /**
+     * IP RATE LIMIT
+     */
+    const ipRaw =
+      req.headers["x-forwarded-for"]?.split(",")[0] ||
+      req.socket.remoteAddress ||
+      "unknown";
+
+    const rateKey = `ip:${ipRaw}`;
     const count = await redis.incr(rateKey);
 
-    if (count === 1) await redis.expire(rateKey, 1);
-    if (count > 10) {
+    if (count === 1) await redis.expire(rateKey, 10); // 10 detik window
+    if (count > 20) {
       return res.status(429).json({ error: "RATE_LIMITED" });
     }
 
-    // -----------------------------
-    // 🔒 2. REPLAY PROTECTION (NONCE)
-    // -----------------------------
+    /**
+     * NONCE PROTECTION
+     */
     const nonceKey = `nonce:${nonce}`;
     const exists = await redis.get(nonceKey);
 
@@ -52,13 +97,11 @@ app.post("/api/claim", async (req, res) => {
       return res.status(400).json({ error: "REPLAY_DETECTED" });
     }
 
-    await redis.set(nonceKey, "1", {
-      EX: 60 * 10,
-    });
+    await redis.set(nonceKey, "1", { EX: 600 });
 
-    // -----------------------------
-    // 🔒 3. SIGNATURE REUSE PROTECTION
-    // -----------------------------
+    /**
+     * SIGNATURE REUSE
+     */
     const sigKey = `sig:${signature}`;
     const usedSig = await redis.get(sigKey);
 
@@ -66,13 +109,11 @@ app.post("/api/claim", async (req, res) => {
       return res.status(400).json({ error: "SIGNATURE_REUSED" });
     }
 
-    await redis.set(sigKey, "1", {
-      EX: 60 * 30,
-    });
+    await redis.set(sigKey, "1", { EX: 1800 });
 
-    // -----------------------------
-    // 🔒 4. WALLET COOLDOWN
-    // -----------------------------
+    /**
+     * WALLET COOLDOWN
+     */
     const walletKey = `wallet:${wallet}:cooldown`;
     const last = await redis.get(walletKey);
     const now = Date.now();
@@ -81,13 +122,11 @@ app.post("/api/claim", async (req, res) => {
       return res.status(429).json({ error: "COOLDOWN" });
     }
 
-    await redis.set(walletKey, now.toString(), {
-      EX: 60,
-    });
+    await redis.set(walletKey, String(now), { EX: 60 });
 
-    // -----------------------------
-    // ⚡ QUEUE JOB (NO BLOCK TX)
-    // -----------------------------
+    /**
+     * QUEUE JOB
+     */
     const job = await claimQueue.add("claim", {
       wallet,
       reward,
@@ -101,11 +140,18 @@ app.post("/api/claim", async (req, res) => {
       jobId: job.id,
     });
   } catch (err) {
-    console.error(err);
+    console.error("CLAIM_ERROR:", err);
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
 
+/**
+ * ======================
+ * START SERVER
+ * ======================
+ */
+const PORT = process.env.PORT || 3001;
+
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("🚀 Server running on", PORT);
+  console.log("🚀 Server running on port", PORT);
 });
