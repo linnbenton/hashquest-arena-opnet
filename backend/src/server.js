@@ -13,7 +13,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT;
 
 // 🔐 SIGNER (ONLY FOR OFFCHAIN SIGN)
 const signer = new ethers.Wallet(process.env.SIGNER_PK);
@@ -106,6 +106,6 @@ app.post("/api/claim", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Backend running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("🚀 Server running on", PORT);
 });
