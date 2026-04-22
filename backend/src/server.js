@@ -41,21 +41,11 @@ console.log("SIGNER READY:", signer.address);
  * HEALTH CHECK
  * ======================
  */
-app.get("/health", async (req, res) => {
-  try {
-    await redis.ping?.();
-
-    res.json({
-      status: "ok",
-      redis: "connected",
-      queue: "active",
-    });
-  } catch (e) {
-    res.status(500).json({
-      status: "error",
-      redis: "disconnected",
-    });
-  }
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    uptime: process.uptime(),
+  });
 });
 
 /**
