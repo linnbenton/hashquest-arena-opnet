@@ -45,6 +45,8 @@ app.get("/health", (req, res) => {
   res.json({
     status: "ok",
     uptime: process.uptime(),
+    env: process.env.NODE_ENV || "development",
+    redis: redis?.isOpen ? "connected" : "disconnected",
   });
 });
 
