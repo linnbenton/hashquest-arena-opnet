@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
 /* ✅ TYPE */
 type Player = {
@@ -8,17 +8,20 @@ type Player = {
   reward: number;
 };
 
-export default function Leaderboard() {
+export const dynamic = 'force-dynamic';
+// Atau kalau mau hemat resource:
+export const revalidate = 30; // Update data setiap 30 detik
 
+export default function Leaderboard() {
   const [players, setPlayers] = useState<Player[]>([]);
 
   async function loadLeaderboard() {
     try {
-      const res = await fetch("/api/leaderboard");
+      const res = await fetch('/api/leaderboard');
       const data = await res.json();
       setPlayers(data || []);
     } catch (err) {
-      console.log("leaderboard error:", err);
+      console.log('leaderboard error:', err);
     }
   }
 
@@ -33,7 +36,8 @@ export default function Leaderboard() {
   }, []);
 
   return (
-    <div className="
+    <div
+      className="
       mt-10 
       w-[340px] 
       mx-auto 
@@ -45,26 +49,25 @@ export default function Leaderboard() {
       rounded-xl 
       border border-yellow-500
       shadow-[0_0_20px_rgba(255,215,0,0.5)]
-    ">
-
-      <h2 className="
+    "
+    >
+      <h2
+        className="
         text-yellow-400 
         text-lg 
         mb-3 
         font-bold
         drop-shadow-[0_0_10px_rgba(255,215,0,0.8)]
-      ">
+      "
+      >
         🏆 Top Miners
       </h2>
 
       {players.length === 0 && (
-        <div className="text-gray-400 text-sm">
-          No miners yet
-        </div>
+        <div className="text-gray-400 text-sm">No miners yet</div>
       )}
 
       {players.map((p, i) => {
-
         const isWhale = p.reward > 5; // 🔥 threshold whale
         const isTop3 = i < 3;
 
@@ -75,16 +78,15 @@ export default function Leaderboard() {
               flex justify-between w-full text-sm py-1 px-2 rounded
               border-b border-gray-700
               transition-all duration-300
-              ${isTop3 ? "bg-yellow-500/10 scale-[1.02]" : ""}
-              ${isWhale ? "text-purple-400 font-bold" : ""}
+              ${isTop3 ? 'bg-yellow-500/10 scale-[1.02]' : ''}
+              ${isWhale ? 'text-purple-400 font-bold' : ''}
             `}
           >
             {/* RANK */}
             <span className="text-yellow-400 flex items-center gap-1">
-              {i === 0 && "🥇"}
-              {i === 1 && "🥈"}
-              {i === 2 && "🥉"}
-              #{i + 1}
+              {i === 0 && '🥇'}
+              {i === 1 && '🥈'}
+              {i === 2 && '🥉'}#{i + 1}
             </span>
 
             {/* ADDRESS */}
@@ -95,12 +97,11 @@ export default function Leaderboard() {
             {/* REWARD + WHALE */}
             <span className="text-cyan-400 flex items-center gap-1">
               {Number(p.reward).toFixed(2)}
-              {isWhale && "🐋"}
+              {isWhale && '🐋'}
             </span>
           </div>
         );
       })}
-
     </div>
   );
 }

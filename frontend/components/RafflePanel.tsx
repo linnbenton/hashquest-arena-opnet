@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
+import RewardPopup from './RewardPopup';
 
 type SliceContent =
   | { type: 'text'; text: string }
@@ -16,19 +17,25 @@ export default function RafflePanel({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tokenImagesRef = useRef<HTMLImageElement[]>([]);
   const [targetLabel, setTargetLabel] = useState<string | null>(null);
-
-  const [imagesReady, setImagesReady] = useState(false);
-  const [isSpinning, setIsSpinning] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
   const [reward, setReward] = useState<string | null>(null);
 
+  const [cinematic, setCinematic] = useState(false);
+  const [flash, setFlash] = useState(false);
+
+  const [imagesReady, setImagesReady] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
+
   const [slowPhase, setSlowPhase] = useState(false);
   const [pointerHit, setPointerHit] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
 
   const spinSound = useRef<HTMLAudioElement | null>(null);
   const clickSound = useRef<HTMLAudioElement | null>(null);
   const winSound = useRef<HTMLAudioElement | null>(null);
   const jackpotSound = useRef<HTMLAudioElement | null>(null);
+  const rewardNumberRef = useRef<HTMLSpanElement | null>(null);
 
   const myTickets = players?.[0]?.tickets || 0;
   const lastTickRef = useRef(0);
@@ -62,7 +69,7 @@ export default function RafflePanel({
   useEffect(() => {
     spinSound.current = new Audio('/spin.mp3');
     spinSound.current.loop = true;
-    spinSound.current.volume = 0.4;
+    spinSound.current.volume = 0.2;
 
     clickSound.current = new Audio('/click.mp3');
     clickSound.current.volume = 0.6;
@@ -71,7 +78,41 @@ export default function RafflePanel({
     winSound.current.volume = 0.8;
 
     jackpotSound.current = new Audio('/jackpot.mp3');
-    jackpotSound.current.volume = 1;
+    jackpotSound.current.volume = 0.2;
+  }, []);
+
+  // ✅ TAMBAH DI SINI
+  useEffect(() => {
+    const switchToGenlayer = async () => {
+      if (!window.ethereum) return;
+
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0xXYZ' }], // 🔥 GANTI ASLI
+        });
+      } catch (err: any) {
+        if (err.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: '0xXYZ',
+                chainName: 'GenLayer',
+                rpcUrls: ['https://rpc.genlayer.com'],
+                nativeCurrency: {
+                  name: 'GEN',
+                  symbol: 'GEN',
+                  decimals: 18,
+                },
+              },
+            ],
+          });
+        }
+      }
+    };
+
+    switchToGenlayer();
   }, []);
 
   // 🎨 DRAW WHEEL (tetap)
@@ -251,38 +292,28 @@ export default function RafflePanel({
   };
 
   // 🎰 SPIN (DARI KODE LAMA LO)
-  const spin = () => {
+  const spin = async () => {
     if (!wallet || isSpinning || myTickets <= 0 || !hasClaimed) return;
 
-    // --- 🎲 1. ACAK TARGET YANG MUNCUL DI UI ---
-    // Pilih target random dari list rewards buat dipajang di label "TARGET"
-    const randomVisualIndex = Math.floor(Math.random() * rewards.length);
-    const visualTargetLabel = rewards[randomVisualIndex];
-    setTargetLabel(visualTargetLabel);
+    const checkNetwork = async () => {
+      const eth = (window as any).ethereum;
+      if (!eth) return false;
 
-    // --- 🧠 2. LOGIC WIN RATE (SUNTIKAN RIGGING) ---
-    const winRate = 0.3; // 30% peluang untuk BENERAN HIT target yang muncul di atas
-    const isHit = Math.random() < winRate;
+      const chainId = await eth.request({ method: 'eth_chainId' });
 
-    let targetIndex: number;
+      if (chainId !== '0xXYZ') {
+        alert('Switch to GenLayer first');
+        return false;
+      }
 
-    if (isHit) {
-      // ✅ SKENARIO HIT: Roda akan berhenti tepat di label yang muncul di UI
-      targetIndex = randomVisualIndex;
-    } else {
-      // ❌ SKENARIO MISS: Roda akan berhenti di tempat lain (biar meleset)
-      const losingPool = [0, 1, 2, 3, 4, 5].filter(
-        (i) => i !== randomVisualIndex
-      );
-      targetIndex = losingPool[Math.floor(Math.random() * losingPool.length)];
-    }
+      return true;
+    };
 
-    // --- 🎡 3. HITUNG ANGLE (Berdasarkan targetIndex hasil rigging) ---
+    const targetIndex = Math.floor(Math.random() * rewards.length);
     const targetAngle = getAngleForIndex(targetIndex);
+
     const spins = Math.floor(7 + Math.random() * 4);
     const finalTarget = targetAngle + spins * Math.PI * 2;
-
-    // ... SISA KODE LO KE BAWAH (Sound, IsSpinning, Animate) ...
 
     clickSound.current?.play();
 
@@ -297,94 +328,112 @@ export default function RafflePanel({
 
     let angle = 0;
 
-    // 🔥 kecepatan awal (kenceng)
-    let velocity = 0.6 + Math.random() * 0.4; // lebih kenceng awal
-
-    const friction = 0.992; // lebih lambat berhenti
-
     const animate = () => {
       const diff = finalTarget - angle;
 
-      // 🎯 Gerak 1 arah & Easing
       const step = diff * 0.06;
       const move =
         Math.sign(step) * Math.max(0.002, Math.min(Math.abs(step), 0.25));
+
       angle += move;
 
-      // 🔔 Tick Sound (Efek Jarum)
       const currentTick = getResultFromAngle(angle);
       if (currentTick !== lastTickRef.current) {
         lastTickRef.current = currentTick;
-        if (clickSound.current) {
-          clickSound.current.currentTime = 0;
-          clickSound.current.play();
-        }
-      }
-
-      // 🎧 Spin Sound Volume
-      if (spinSound.current) {
-        spinSound.current.playbackRate = 1;
-        spinSound.current.volume = 0.3;
+        clickSound.current?.play();
       }
 
       drawWheel(angle);
 
-      // 🛑 LOGIKA BERHENTI
       if (Math.abs(diff) > 0.002) {
         requestAnimationFrame(animate);
       } else {
-        // 1. Stop Suara Putaran
-        if (spinSound.current) {
-          spinSound.current.pause();
-          spinSound.current.currentTime = 0;
-        }
+        // STOP SOUND
+        spinSound.current?.pause();
+        spinSound.current!.currentTime = 0;
 
-        // 2. Lock Posisi Visual
-        angle = finalTarget;
-        drawWheel(angle);
-
-        // 3. Ambil Hasil Berdasarkan Index yang dikunci di awal
+        // LOCK RESULT
         const rewardText = rewards[targetIndex] ?? 'UNKNOWN';
 
-        // 4. Update State UI
         setIsSpinning(false);
         setSlowPhase(false);
         setWinner('You');
         setReward(rewardText);
 
-        // 5. Pointer Animation
+        setTimeout(() => {
+          if (rewardText === 'NO LUCKY' || rewardText === 'TRY AGAIN') return;
+
+          // 🎬 ENTER CINEMATIC MODE
+          setCinematic(true);
+
+          // 🔥 FREEZE FRAME EFFECT
+          setFlash(true);
+
+          // 🔊 SOUND DROP MOMENT
+          spinSound.current?.pause();
+          spinSound.current!.currentTime = 0;
+
+          const winAudio = new Audio(
+            rewardText === 'JACKPOT' ? '/jackpot.mp3' : '/win.mp3'
+          );
+
+          // 🔇 mulai dari 0 (biar cinematic)
+          winAudio.volume = 0;
+
+          setTimeout(() => {
+            // 🔊 fade in
+            winAudio.volume = rewardText === 'JACKPOT' ? 0.5 : 0.7;
+            winAudio.play();
+          }, 100);
+
+          // 💥 CAMERA SHAKE TRIGGER STYLE
+          setPointerHit(true);
+
+          // 🎇 CONFETTI BURST
+          const burst = () => {
+            const container = document.createElement('div');
+            container.className = 'fixed inset-0 pointer-events-none z-[9999]';
+
+            for (let i = 0; i < 120; i++) {
+              const dot = document.createElement('div');
+
+              dot.style.position = 'absolute';
+              dot.style.left = Math.random() * 100 + '%';
+              dot.style.top = '0px';
+              dot.style.width = '6px';
+              dot.style.height = '6px';
+              dot.style.background =
+                Math.random() > 0.5 ? '#facc15' : '#a855f7';
+
+              dot.style.animation = `fall 1.8s linear forwards`;
+
+              container.appendChild(dot);
+            }
+
+            document.body.appendChild(container);
+
+            setTimeout(() => container.remove(), 2000);
+          };
+
+          burst();
+
+          // 🧠 POPUP DELAY (DRAMATIC REVEAL)
+          setTimeout(() => {
+            setFlash(false);
+            setCinematic(false);
+            setShowPopup(true);
+          }, 900);
+        }, 250);
+
         setPointerHit(true);
         setTimeout(() => setPointerHit(false), 200);
 
-        // --- 🔊 LOGIKA AUDIO FINAL FIX ---
-        // Gunakan .trim() dan .toUpperCase() buat jaga-jaga ada typo di array rewards
-        const isActuallyHit =
-          rewardText.trim().toUpperCase() === targetLabel?.trim().toUpperCase();
-
-        if (isActuallyHit) {
-          if (rewardText.includes('JACKPOT')) {
-            if (jackpotSound.current) {
-              jackpotSound.current.pause(); // Hentikan yang lama jika masih ada
-              jackpotSound.current.currentTime = 0; // Reset ke awal
-              jackpotSound.current.volume = 1.0; // Pastikan volume kencang
-
-              // Gunakan Promise untuk catch error jika browser blokir audio
-              jackpotSound.current
-                .play()
-                .catch((e) => console.error('Audio blocked by browser:', e));
-            }
-          } else if (rewardText !== 'NO LUCKY' && rewardText !== 'TRY AGAIN') {
-            if (winSound.current) {
-              winSound.current.currentTime = 0;
-              winSound.current
-                .play()
-                .catch((e) => console.error('Audio blocked:', e));
-            }
-          }
-        } else {
-          console.log('MISS: No celebration audio.');
+        // AUDIO CLEAN (NO TARGET COMPARISON)
+        if (rewardText === 'JACKPOT') {
+          jackpotSound.current?.play();
+        } else if (rewardText !== 'NO LUCKY' && rewardText !== 'TRY AGAIN') {
+          winSound.current?.play();
         }
-        // ----------------------------------------
 
         setHasClaimed(false);
         return;
@@ -412,150 +461,137 @@ export default function RafflePanel({
   };
 
   return (
-    <div
-      className={`relative w-full h-full min-h-[600px] flex flex-col gap-10 p-8 bg-black/40 rounded-3xl border-4 border-purple-500 transition-all duration-300
+    <>
+      {/* 🌈 RAINBOW FLASH EFFECT */}
+      {flash && (
+        <div
+          className="fixed inset-0 z-[9998] opacity-60 animate-rainbow-flash"
+          style={{
+            background:
+              'linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff)',
+            backgroundSize: '400% 400%',
+          }}
+        />
+      )}
+
+      <RewardPopup
+        reward={showPopup ? reward : null}
+        onCollect={() => {
+          setShowPopup(false);
+          setReward(null);
+        }}
+      />
+
+      <div
+        className={`relative w-full h-full min-h-[600px] flex flex-col gap-10 p-8 bg-black/40 rounded-3xl border-4 border-purple-500 transition-all duration-300
       ${isSpinning ? '' : 'shadow-[0_0_25px_rgba(168,85,247,0.6)]'}
       ${winner ? 'result-glow' : ''}
+      ${cinematic ? 'scale-[1.02] brightness-125' : ''}
 `}
-    >
-      {/* HEADER */}
-      <div className="flex flex-col items-center gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🎰</span>
-          <h2 className="text-purple-400 font-black text-xl tracking-wider uppercase">
-            RAFFLE LOTTERY
-          </h2>
-        </div>
-
-        {/* 🧠 PENJELAS GAME */}
-        <p className="text-xs text-zinc-400 text-center">
-          Match the wheel with the target to win 🎯
-        </p>
-      </div>
-
-      {/* WHEEL */}
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[450px]">
-        <div className="relative w-[350px] h-[350px] flex items-center justify-center">
-          {/* 🔥 BULB RING (LAMPU KELILING) */}
-          <div className="absolute inset-0 pointer-events-none">
-            {Array.from({ length: 24 }).map((_, i) => {
-              const angle = (i / 24) * Math.PI * 2;
-              const r = 175;
-
-              const x = Math.cos(angle) * r;
-              const y = Math.sin(angle) * r;
-
-              // ✅ STYLE DENGAN TYPE (INI YANG FIX MERAH)
-              const style: CSSProperties = {
-                position: 'absolute',
-                left: `calc(50% + ${x}px - 6px)`,
-                top: `calc(50% + ${y}px - 6px)`,
-                background: `hsl(${(i * 360) / 24}, 100%, 60%)`,
-                animationDelay: `${i * 0.08}s`,
-              };
-
-              return (
-                <div
-                  key={i}
-                  className={`bulb ${isSpinning ? 'bulb-on' : 'bulb-off'}`}
-                  style={style}
-                />
-              );
-            })}
+      >
+        {/* HEADER */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🎰</span>
+            <h2 className="text-purple-400 font-black text-xl tracking-wider uppercase">
+              RAFFLE LOTTERY
+            </h2>
           </div>
 
-          {/* 🎯 CANVAS LO (JANGAN DIUBAH LOGICNYA) */}
-          <canvas
-            ref={canvasRef}
-            width={350}
-            height={350}
-            className={`rounded-full border-[12px] border-purple-900/60 ${
-              pointerHit ? 'pointer-bounce' : ''
-            }`}
-          />
+          {/* 🧠 PENJELAS GAME */}
+          <p className="text-xs text-zinc-400 text-center">
+            Match the wheel with the target to win 🎯
+          </p>
         </div>
 
-        <div className="text-center mt-2">
-          <span className="text-xs text-zinc-400">TARGET</span>
-          <div className="text-lg font-black text-yellow-300">
-            {targetLabel ?? '-'}
-          </div>
-        </div>
-      </div>
+        {/* WHEEL */}
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[450px]">
+          <div className="relative w-[350px] h-[350px] flex items-center justify-center">
+            {/* 🔥 BULB RING (LAMPU KELILING) */}
+            <div className="absolute inset-0 pointer-events-none">
+              {Array.from({ length: 24 }).map((_, i) => {
+                const angle = (i / 24) * Math.PI * 2;
+                const r = 175;
 
-      <div className="h-24 w-full flex items-center justify-center mt-4 px-2">
-        {winner ? (
-          <div className="w-full p-3 bg-zinc-900/80 border border-green-500/50 rounded-xl text-center">
-            <span className="text-green-400 font-bold">
-              🏆 Winner: {winner}
-            </span>
-            <br />
+                const x = Math.cos(angle) * r;
+                const y = Math.sin(angle) * r;
 
-            <span
-              className={`font-bold ${
-                reward === 'JACKPOT'
-                  ? 'text-yellow-300 animate-pulse text-xl'
-                  : 'text-yellow-400'
+                // ✅ STYLE DENGAN TYPE (INI YANG FIX MERAH)
+                const style: CSSProperties = {
+                  position: 'absolute',
+                  left: `calc(50% + ${x}px - 6px)`,
+                  top: `calc(50% + ${y}px - 6px)`,
+                  background: `hsl(${(i * 360) / 24}, 100%, 60%)`,
+                  animationDelay: `${i * 0.08}s`,
+                };
+
+                return (
+                  <div
+                    key={i}
+                    className={`bulb ${isSpinning ? 'bulb-on' : 'bulb-off'}`}
+                    style={style}
+                  />
+                );
+              })}
+            </div>
+
+            {/* 🎯 CANVAS LO (JANGAN DIUBAH LOGICNYA) */}
+            <canvas
+              ref={canvasRef}
+              width={350}
+              height={350}
+              className={`rounded-full border-[12px] border-purple-900/60 ${
+                pointerHit ? 'pointer-bounce' : ''
               }`}
-            >
-              🎁 Reward: {reward}
-            </span>
-
-            <br />
-
-            {/* 🎯 HIT / MISS */}
-            {reward && targetLabel && (
-              <span
-                className={`font-bold ${
-                  reward === targetLabel ? 'text-green-400' : 'text-red-400'
-                }`}
-              >
-                {reward === targetLabel ? '🎯 HIT!' : '❌ MISS'}
-              </span>
-            )}
-          </div>
-        ) : (
-          <p className="text-zinc-700 italic text-xs uppercase opacity-40">
-            Waiting for draw results...
-          </p>
-        )}
-      </div>
-
-      {/* 🔥 BUTTON (LOGIC LAMA LO) */}
-      <div className="mt-auto w-full h-32 flex flex-col justify-start pt-9">
-        <button
-          onClick={spin}
-          disabled={!wallet || isSpinning || myTickets <= 0 || !hasClaimed}
-          className={`w-full py-4 rounded-xl font-black text-white uppercase tracking-widest transition-all ${
-            !wallet || isSpinning || myTickets <= 0 || !hasClaimed
-              ? 'bg-zinc-800 text-zinc-500'
-              : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:scale-[1.02]'
-          }`}
-        >
-          {isSpinning ? '🎰 SPINNING...' : '🎟 DRAW WINNER'}
-        </button>
-
-        {/* ⚠️ REASON TEXT */}
-        {(!wallet || myTickets <= 0 || !hasClaimed) && !isSpinning && (
-          <p className="text-xs text-zinc-500 text-center mt-2">
-            {!wallet && '🔌 Connect wallet'}
-            {wallet && myTickets <= 0 && '🎟 No tickets'}
-            {wallet && myTickets > 0 && !hasClaimed && '⚠️ Claim first'}
-          </p>
-        )}
-      </div>
-
-      {reward === 'JACKPOT' && (
-        <div className="confetti-container">
-          {Array.from({ length: 40 }).map((_, i) => (
-            <span
-              key={i}
-              className="confetti"
-              style={{ left: `${Math.random() * 100}%` }}
             />
-          ))}
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* Bagian ini dikosongkan agar label Winner/Reward hilang */}
+        <div className="h-24 w-full flex items-center justify-center mt-4 px-2">
+          {!winner && (
+            <p className="text-zinc-700 italic text-xs uppercase opacity-40">
+              Waiting for draw results...
+            </p>
+          )}
+        </div>
+
+        {/* 🔥 BUTTON (LOGIC LAMA LO) */}
+        <div className="mt-auto w-full h-32 flex flex-col justify-start pt-9">
+          <button
+            onClick={spin}
+            disabled={!wallet || isSpinning || myTickets <= 0 || !hasClaimed}
+            className={`w-full py-4 rounded-xl font-black text-white uppercase tracking-widest transition-all ${
+              !wallet || isSpinning || myTickets <= 0 || !hasClaimed
+                ? 'bg-zinc-800 text-zinc-500'
+                : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:scale-[1.02]'
+            }`}
+          >
+            {isSpinning ? '🎰 SPINNING...' : '🎟 DRAW WINNER'}
+          </button>
+
+          {/* ⚠️ REASON TEXT */}
+          {(!wallet || myTickets <= 0 || !hasClaimed) && !isSpinning && (
+            <p className="text-xs text-zinc-500 text-center mt-2">
+              {!wallet && '🔌 Connect wallet'}
+              {wallet && myTickets <= 0 && '🎟 No tickets'}
+              {wallet && myTickets > 0 && !hasClaimed && '⚠️ Claim first'}
+            </p>
+          )}
+        </div>
+
+        {reward === 'JACKPOT' && (
+          <div className="confetti-container">
+            {Array.from({ length: 40 }).map((_, i) => (
+              <span
+                key={i}
+                className="confetti"
+                style={{ left: `${Math.random() * 100}%` }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

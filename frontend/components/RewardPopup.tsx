@@ -1,50 +1,53 @@
 'use client';
 
+import { motion, AnimatePresence } from 'framer-motion';
+
 type Props = {
   reward: string | null;
   onCollect: () => void;
-  disabled?: boolean;
 };
 
-export default function RewardPopup({
-  reward,
-  onCollect,
-  disabled = false, // 🔥 DEFAULT
-}: Props) {
-  if (!reward) return null; // 🔥 NO RENDER = NO COST
-
-  const isJackpot = reward === 'JACKPOT';
-
+export default function RewardPopup({ reward, onCollect }: Props) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div
-        className={`px-8 py-6 rounded-2xl border text-center
-        ${isJackpot ? 'border-yellow-400' : 'border-purple-500'}
-        bg-zinc-900 shadow-xl`}
-      >
-        <h2 className="text-lg font-black text-white mb-2">🎉 YOU WON</h2>
+    <AnimatePresence mode="wait">
+      {reward && (
+        /* Overlay: Pastikan z-index sangat tinggi agar tidak tertutup elemen lain */
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md">
+          <motion.div
+            /* Kunci agar animasi selalu dari pusat kotak */
+            style={{ originX: 0.5, originY: 0.5 }}
+            /* Gunakan transisi yang sama untuk masuk dan keluar */
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            transition={{
+              duration: 0.2,
+              ease: [0.4, 0, 0.2, 1], // Cubic-bezier untuk transisi yang lebih 'snappy'
+            }}
+            /* w-fit dan mx-auto memastikan kotak tidak melebar ke samping secara paksa */
+            className={`relative p-10 rounded-3xl border-2 text-center bg-zinc-950 shadow-2xl w-[90%] max-w-sm
+            ${reward === 'JACKPOT' ? 'border-yellow-400' : 'border-cyan-500'}`}
+          >
+            <p className="text-[10px] font-mono tracking-[0.4em] text-zinc-500 mb-2 uppercase">
+              Extraction Complete
+            </p>
 
-        <div
-          className={`font-black text-2xl mb-4
-          ${isJackpot ? 'text-yellow-300 animate-pulse' : 'text-purple-400'}`}
-        >
-          {reward}
+            <div
+              className={`font-black text-6xl mb-8 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]
+              ${reward === 'JACKPOT' ? 'text-yellow-300' : 'text-cyan-400'}`}
+            >
+              {reward === 'JACKPOT' ? 'JACKPOT' : `+${reward}`}
+            </div>
+
+            <button
+              onClick={onCollect}
+              className="w-full py-4 rounded-xl font-black text-xs tracking-[0.2em] bg-cyan-500 text-black hover:bg-cyan-400 transition-all active:scale-95 uppercase flex items-center justify-center gap-2"
+            >
+              🎫 COLLECT 🎟️
+            </button>
+          </motion.div>
         </div>
-
-        <button
-          onClick={onCollect}
-          disabled={!reward || disabled}
-          className={`px-6 py-3 rounded-lg font-bold transition-all
-    ${
-      !reward || disabled
-        ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
-        : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:scale-105'
-    }
-  `}
-        >
-          {!reward ? 'NO REWARD' : disabled ? 'PROCESSING...' : 'COLLECT'}
-        </button>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

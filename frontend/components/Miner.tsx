@@ -228,7 +228,7 @@ export default function Miner({
 
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/claim`,
+          '/api/claim', // <--- GANTI INI (Hapus variabel env-nya)
           {
             method: 'POST',
             headers: {
@@ -466,7 +466,7 @@ export default function Miner({
           <div className="flex items-center gap-2">
             <span className="text-xl">⛏️</span>
             <h2 className="text-cyan-400 font-black text-xl tracking-wider uppercase drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]">
-              Mining Console
+              Mining Ticket
             </h2>
           </div>
           {wallet && (
@@ -589,7 +589,7 @@ export default function Miner({
       }
     `}
           >
-            {loading ? '📡 BROADCASTING...' : '🎰 CLAIM REWARD'}
+            {loading ? '📡 BROADCASTING...' : '🎟️ CLAIM TICKET'}
           </button>
 
           {/* Jaga ruang error agar tinggi kotak tidak berubah (Space Booking) */}

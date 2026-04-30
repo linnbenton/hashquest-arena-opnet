@@ -53,6 +53,24 @@ body {
   animation: fall linear forwards;
 }
 
+@keyframes popupIn {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-popup-in {
+  animation: popupIn 0.25s ease-out;
+}
+
 /* ✅ SUCCESS CHECK ANIMATION */
 @keyframes draw-check {
   to {
@@ -651,7 +669,12 @@ main {
 }
 
 .result-glow {
-  animation: resultGlow 0.6s ease;
+  /* Fokus hanya pada cahaya neon, jangan pakai animasi shake/zoom */
+  box-shadow:
+    0 0 40px rgba(168, 85, 247, 0.8),
+    inset 0 0 20px rgba(168, 85, 247, 0.4);
+  border-color: #c084fc; /* Warna purple yang lebih terang */
+  transition: all 0.5s ease-in-out;
 }
 
 @keyframes resultGlow {
